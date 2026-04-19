@@ -83,11 +83,30 @@ def _candidate_strings(value: float) -> set[str]:
     return out
 
 
-def check_grounded(narrative: str, key_factors: list[dict]) -> tuple[bool, str]:
-    valid_values: list[float] = []
+def _expand_valid_values(key_factors: list[dict]) -> list[float]:
+    """Pool de números aceitos como grounded numa narrativa.
+
+    Além do `value` e `median`, inclui: (a) números presentes nos labels
+    (ex: "60-89 dias" → 60, 89), e (b) representação percentual de
+    decimais < 1 (ex: 0.04 → 4, porque LLM escreve "4%").
+    """
+    out: list[float] = []
     for f in key_factors:
-        valid_values.append(float(f["value"]))
-        valid_values.append(float(f["median"]))
+        for v in (f["value"], f["median"]):
+            fv = float(v)
+            out.append(fv)
+            if 0 < abs(fv) < 1:
+                out.append(fv * 100)
+        for token in NUM_RE.findall(f.get("label", "")):
+            try:
+                out.append(float(token))
+            except ValueError:
+                continue
+    return out
+
+
+def check_grounded(narrative: str, key_factors: list[dict]) -> tuple[bool, str]:
+    valid_values = _expand_valid_values(key_factors)
     normalized = _normalize_pt_br_numbers(narrative)
     for token in NUM_RE.findall(normalized):
         try:
