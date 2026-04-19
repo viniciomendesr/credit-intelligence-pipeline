@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
     paths-ignore:
-      - '**.md'
+      - '**/*.md'
+      - '*.md'
       - 'context/**'
       - 'reports/**'
       - 'models/**'
@@ -13,7 +14,8 @@ on:
   pull_request:
     branches: [main]
     paths-ignore:
-      - '**.md'
+      - '**/*.md'
+      - '*.md'
       - 'context/**'
       - 'reports/**'
       - 'models/**'
