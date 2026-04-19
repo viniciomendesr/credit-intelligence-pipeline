@@ -35,3 +35,6 @@ context/
 
 # Worktrees e estado do Claude Code
 .claude/
+
+# Relatórios de eval contêm narrativas com features derivadas do Kaggle
+reports/
