@@ -44,6 +44,20 @@ FORBIDDEN = ["cep", "endereço", "endereco", "raça", "raca", "gênero", "genero
              "estado civil", "religião", "religiao"]
 NUM_RE = re.compile(r"\d+[.,]?\d*")
 
+# Separadores BR: "R$ 8.272,00" → ponto como milhar, vírgula como decimal.
+# Normaliza para "8272.00" antes do regex pegar números.
+_BR_THOUSANDS_RE = re.compile(r"(\d)\.(\d{3})(?!\d)")
+_BR_DECIMAL_RE = re.compile(r"(\d),(\d)")
+
+
+def _normalize_pt_br_numbers(text: str) -> str:
+    prev = None
+    while prev != text:
+        prev = text
+        text = _BR_THOUSANDS_RE.sub(r"\1\2", text)  # 1.234.567 → 1234567 (iterativo)
+    text = _BR_DECIMAL_RE.sub(r"\1.\2", text)
+    return text
+
 
 def stratified_sample(mart_path: str, n: int, seed: int) -> list[int]:
     df = pd.read_parquet(mart_path)
@@ -74,9 +88,10 @@ def check_grounded(narrative: str, key_factors: list[dict]) -> tuple[bool, str]:
     for f in key_factors:
         valid_values.append(float(f["value"]))
         valid_values.append(float(f["median"]))
-    for token in NUM_RE.findall(narrative):
+    normalized = _normalize_pt_br_numbers(narrative)
+    for token in NUM_RE.findall(normalized):
         try:
-            num = float(token.replace(",", "."))
+            num = float(token)
         except ValueError:
             continue
         if not any(abs(num - v) < 0.05 or abs(num - v) / (abs(v) + 1e-9) < 0.02
