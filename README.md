@@ -200,7 +200,7 @@ Objetivo: reimplementar tudo sem olhar no gabarito.
 1. Clone em **outra pasta**, deleta `src/`, `api/`, `pipeline/`, `scripts/`,
    `tests/`.
 2. Mantém `data/` (precisa do dataset), `requirements.txt`, e os guias.
-3. Abre o guia privado em `context/hackathon-coreai/fase-1.html` (se existir
+3. Abre o guia privado em `context/projeto-pedagogico/fase-1.html` (se existir
    localmente) ou segue pelos desafios descritos em [`decisions.md`](decisions.md).
 4. Para cada desafio: tente por 20-30 min, só então abra o gabarito neste
    repo.
@@ -243,7 +243,7 @@ Projeto foi desenhado consultando:
   para novatos num domínio.
 
 Reflexões pós-implementação sobre o que funciona e o que precisa ajustar
-ficam em `context/hackathon-coreai/` (material privado).
+ficam em `context/projeto-pedagogico/` (material privado).
 
 ---
 
@@ -255,7 +255,7 @@ ficam em `context/hackathon-coreai/` (material privado).
 - Custo operacional: <R$1/mês em uso pessoal (Cloud Run scale-to-zero,
   GCS Standard com ~5 MB, Anthropic Haiku em tier free + créditos)
 
-Dívidas conhecidas registradas em `context/hackathon-coreai/melhorias-estruturais.md`
+Dívidas conhecidas registradas em `context/projeto-pedagogico/melhorias-estruturais.md`
 (material privado). Entre os principais itens abertos: fairness audit,
 feature engineering manual, custo assimétrico FN vs FP, Dockerfile de
 training.
