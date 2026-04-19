@@ -3,8 +3,26 @@ name: Credit Pipeline CI/CD
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'context/**'
+      - 'reports/**'
+      - 'models/**'
+      - '.gitignore'
+      - 'LICENSE'
   pull_request:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'context/**'
+      - 'reports/**'
+      - 'models/**'
+      - '.gitignore'
+      - 'LICENSE'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -15,12 +33,17 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -31,8 +54,12 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     # PRs rodam só os testes — deploy só acontece em push para main
     if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      id-token: write    # reservado pra migração futura p/ OIDC WIF
 
     steps:
       - uses: actions/checkout@v4
