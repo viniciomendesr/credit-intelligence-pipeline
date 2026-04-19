@@ -38,3 +38,6 @@ context/
 
 # Relatórios de eval contêm narrativas com features derivadas do Kaggle
 reports/
+
+# Modelos treinados — artefatos derivados, versionados no GCS (Fase 5)
+models/*.pkl
