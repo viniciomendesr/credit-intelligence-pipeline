@@ -11,7 +11,7 @@ da carteira) e aplica três checks binários à saída de
                está no top-3
   - forbidden: narrativa não cita CEP, raça, gênero, estado civil, religião
 
-Gera ``reports/eval_explainer_<timestamp>.json`` com pass rates, latência
+Gera ``reports/eval_explainer_rule_<timestamp>.json`` com pass rates, latência
 p95, custo em USD (Haiku 4.5) e lista completa de violações. Sai com
 exit 1 se ``pass_rate_overall < threshold`` — pensado pra rodar como
 step de CI.
@@ -34,7 +34,7 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.decision_explainer import explain_decision  # noqa: E402
+from src.decision_explainer_rule import explain_decision  # noqa: E402
 
 # Haiku 4.5 pricing — atualizar se mudar na tabela
 PRICE_IN_PER_MTOK = 1.00   # USD por milhão de tokens de input
@@ -212,7 +212,7 @@ def main() -> int:
     report = run_eval(args.mart, args.n, args.seed)
     out_dir = Path("reports")
     out_dir.mkdir(exist_ok=True)
-    out_path = out_dir / f"eval_explainer_{datetime.now():%Y%m%d_%H%M%S}.json"
+    out_path = out_dir / f"eval_explainer_rule_{datetime.now():%Y%m%d_%H%M%S}.json"
     out_path.write_text(json.dumps(report, indent=2, ensure_ascii=False))
 
     summary = {k: v for k, v in report.items() if k != "violations"}

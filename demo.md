@@ -10,7 +10,7 @@ sistema está vivo, auditável e reproduzível:
 - Entrevista técnica (um caso particular deste roteiro).
 
 Se a demo evoluir para "como você usa LLM?", complementar com
-`demo-bonus.md`.
+`demo-bonus-fase4.md`.
 
 ---
 

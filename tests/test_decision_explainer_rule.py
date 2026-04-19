@@ -8,7 +8,7 @@ saída reprodutível. A validação do comportamento do LLM vive em
 import pandas as pd
 import pytest
 
-from src.decision_explainer import DECISION_BY_TIER, extract_context
+from src.decision_explainer_rule import DECISION_BY_TIER, extract_context
 
 
 @pytest.fixture

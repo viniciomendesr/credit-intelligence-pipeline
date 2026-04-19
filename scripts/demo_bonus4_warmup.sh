@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Aquece o endpoint /explain-decision 60s antes da entrevista.
+# Aquece o endpoint /explain-decision/rule (Bônus Fase 4 — regra SQL).
 # Dispara os 3 applicant_ids pré-validados pra popular o cache por chave.
 set -euo pipefail
 
-URL="${1:-https://credit-api-wdrbcpzvha-uc.a.run.app}"
+URL="${1:-https://credit-api-10681834413.us-central1.run.app}"
 
 # Ids pré-validados (narrativa revisada após pass_rate_grounded=1.0 no eval).
 # Escolha: 1 de cada tier com perfil claro e dados não-outlier.
@@ -21,13 +21,13 @@ echo ""
 for pair in "APROVADO:$ID_APROVADO" "LIMITE:$ID_LIMITE" "NEGADO:$ID_NEGADO"; do
   label="${pair%%:*}"
   id="${pair##*:}"
-  echo "▶ Pré-aquecendo /explain-decision/$id ($label)"
-  curl -s "$URL/explain-decision/$id" \
+  echo "▶ Pré-aquecendo /explain-decision/rule/$id ($label)"
+  curl -s "$URL/explain-decision/rule/$id" \
     | jq '{applicant_id, decision, risk_tier, narrative, cached}'
   echo ""
 done
 
-LATEST_EVAL=$(ls -t reports/eval_explainer_*.json 2>/dev/null | head -1 || true)
+LATEST_EVAL=$(ls -t reports/eval_explainer_rule_*.json 2>/dev/null | head -1 || true)
 if command -v open >/dev/null 2>&1; then
   open "$URL/docs"
   open "https://github.com/viniciomendesr/credit-intelligence-pipeline/actions" || true
@@ -37,4 +37,4 @@ if command -v open >/dev/null 2>&1; then
 fi
 
 echo "✅ Cache por chave populado. Chamadas repetidas voltarão com cached:true em <100ms."
-echo "   Siga o demo-bonus.md."
+echo "   Siga o demo-bonus-fase4.md."

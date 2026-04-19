@@ -63,7 +63,7 @@ versão + próximo cold start).
 ingênua: jogar o mart inteiro no prompt e pedir "explique". Abordagem
 correta: extrair os fatores primeiro, narrar depois.
 
-**Decisão.** Duas funções em `src/decision_explainer.py`:
+**Decisão.** Duas funções em `src/decision_explainer_rule.py`:
 
 1. `extract_context()` — determinística, escolhe top-3 fatores com maior
    desvio vs. mediana da carteira. Sem LLM.
@@ -95,7 +95,7 @@ narrativa do tomador 3) — corretude depende do input.
 **Trade-off conhecido.** No Cloud Run com múltiplas réplicas, cada instância
 tem seu cache local. Aceitável pra este projeto (explicação é idempotente
 pro mesmo mart + modelo + prompt). Em produção de escala, usar Memorystore/
-Redis. Registrado como variação em `bonus.html::B.2`.
+Redis. Registrado como variação em `bonus-fase4.html::B.2`.
 
 ---
 
@@ -106,7 +106,7 @@ Redis. Registrado como variação em `bonus.html::B.2`.
 **Contexto.** LLM em produção falha silenciosamente — mudança de prompt ou
 troca de modelo pode introduzir alucinação em 5% dos casos sem ninguém notar.
 
-**Decisão.** `scripts/eval_explainer.py` que amostra 21 `applicant_id`s
+**Decisão.** `scripts/eval_explainer_rule.py` que amostra 21 `applicant_id`s
 estratificados por tier (LOW/MEDIUM/HIGH em proporção da carteira), roda o
 explainer em cada, e aplica 3 checks binários:
 
@@ -115,7 +115,7 @@ explainer em cada, e aplica 3 checks binários:
    no top-3
 3. **forbidden** — narrativa não menciona CEP/raça/gênero/religião/estado civil
 
-Gera `reports/eval_explainer_<timestamp>.json` com pass rates, latência p95,
+Gera `reports/eval_explainer_rule_<timestamp>.json` com pass rates, latência p95,
 custo USD, tokens consumidos, violações. Exit 1 se `pass_rate_overall < 0.95`
 — pensado pra virar step de CI.
 
@@ -205,7 +205,7 @@ processo de pensamento.
 
 ### 2026-04-19 — reports/ gitignored (narrativas derivadas do Kaggle)
 
-**Contexto.** `scripts/eval_explainer.py` gera JSONs em `reports/` contendo
+**Contexto.** `scripts/eval_explainer_rule.py` gera JSONs em `reports/` contendo
 narrativas individuais com features citadas (`value`, `median`, `applicant_id`).
 
 **Decisão.** Adicionar `reports/` ao `.gitignore`. Consistente com a linha
@@ -222,6 +222,59 @@ publicar com atribuição no README.
 ---
 
 ## reavaliações e pivots
+
+### 2026-04-19 — arquitetura paralela v1/v2: adicionar Fase 5 + promover bônus pra Bônus Fase 4
+
+**Contexto.** Análise de aderência do bônus ao produto real da Core AI
+expôs que o pipeline inteiro até aqui era **100% rule-based** — a
+classificação de risco vinha de um `CASE WHEN` de 3 linhas em
+`models/mart_credit_features.sql` e o label `defaulted` do Kaggle
+jamais foi usado pra treinar nada. O projeto se chama "Credit
+Intelligence Pipeline" e não tinha modelo treinado.
+
+**Decisão.** Estrutura paralela v1/v2 em vez de substituição destrutiva:
+
+- **Bônus Fase 4 (v1)** = o bônus atual renomeado, LLM narra a regra SQL
+- **Fase 5** (nova) = treinar XGBoost + benchmarking contra baseline rule-based
+- **Bônus Fase 5 (v2)** = LLM narra o modelo ML com SHAP values
+
+**Alternativas descartadas:**
+
+- *Substituir bônus por Fase 5* — empacota dois tópicos diferentes
+  (engenharia de AI vs. modelagem ML) num só slot. Destrutivo.
+- *Refatorar bônus existente pra consumir o modelo* — rewrite de
+  `decision_explainer.py`, destrói o v1. Inconsistente com a meta-decisão
+  "preservar evolução em repo público".
+- *Single endpoint com query param `?source=rule|ml`* — engenharia
+  elegante mas esconde a progressão pedagógica.
+
+**Opção A escolhida**: arquivos paralelos. `decision_explainer_rule.py`
++ `decision_explainer_ml.py`, endpoints `/explain-decision/rule/{id}` +
+`/explain-decision/ml/{id}`, evals paralelos. Duplicação consciente —
+cada fase é demoável isoladamente e a comparação lado a lado vira
+conteúdo de entrevista.
+
+**Renames não-destrutivos aplicados:** `decision_explainer.py` →
+`_rule.py`, `eval_explainer.py` → `_rule.py`, `demo_bonus_warmup.sh` →
+`demo_bonus4_warmup.sh`, `demo-bonus.md` → `demo-bonus-fase4.md`,
+`bonus.html` → `bonus-fase4.html`, endpoint `/explain-decision/{id}`
+→ `/explain-decision/rule/{id}`.
+
+**Novos guias HTML:** `fase-5.html`, `bonus-fase5.html`. Código a
+implementar em sessões subsequentes.
+
+**Hub reestruturado:** 5 cards → **7 cards planos**, stats
+atualizadas (5 fases, 28 desafios, 10 ferramentas com XGBoost + SHAP).
+
+**Meta-lição.** O fato de que o projeto rodou 4 fases sem usar o label
+real do dataset é sinal de que "intelligence" no nome não basta —
+precisa de training loop. A estrutura v1/v2 também ensina um padrão
+arquitetural valioso: quando você tem um conceito (explicação de decisão)
+que pode ter vários backings (regra, ML, futuro: ensemble), separar o
+interface do implementation em arquivos paralelos torna cada backing
+testável, substituível e compreensível isoladamente.
+
+---
 
 ### 2026-04-18 — pivot do bônus: `/insights` → `/explain-decision`
 
@@ -258,7 +311,7 @@ por "ponto alto da demo". Manter toda a estrutura de beats e perguntas
 frequentes — o conteúdo é útil em qualquer audiência.
 
 **Arquivos renomeados.** `DEMO.md` → `demo.md`; `DEMO_BONUS.md` →
-`demo-bonus.md` (feedback secundário: lowercase kebab-case como padrão).
+`demo-bonus-fase4.md` (feedback secundário: lowercase kebab-case como padrão).
 
 ---
 

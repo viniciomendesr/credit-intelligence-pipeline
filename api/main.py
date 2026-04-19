@@ -6,7 +6,7 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 
 sys.path.insert(0, ".")
-from src.decision_explainer import explain_decision
+from src.decision_explainer_rule import explain_decision
 
 
 def _load_mart() -> pd.DataFrame:
@@ -57,8 +57,8 @@ _explanation_cache: dict[int, dict] = {}
 EXPLANATION_TTL = timedelta(minutes=30)
 
 
-@app.get("/explain-decision/{applicant_id}")
-def explain(applicant_id: int):
+@app.get("/explain-decision/rule/{applicant_id}")
+def explain_rule(applicant_id: int):
     now = datetime.now()
     cached = _explanation_cache.get(applicant_id)
     if cached and (now - cached["_cached_at"]) < EXPLANATION_TTL:

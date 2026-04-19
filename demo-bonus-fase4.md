@@ -1,7 +1,8 @@
-# demo-bonus — runbook do endpoint explicável (5 min)
+# demo-bonus-fase4 — runbook do explicável v1 (regra SQL + LLM)
 
-Roteiro para demonstrar o endpoint `/explain-decision/{applicant_id}` —
-o diferencial de LLM com guardrails em cima do pipeline. Use para:
+Roteiro para demonstrar o endpoint `/explain-decision/rule/{applicant_id}` —
+LLM narrando a classificação rule-based da Fase 2 (v1 do explicável).
+Use para:
 
 - Validar que o explicador ainda está consistente depois de mexer no
   prompt, trocar de modelo ou regenerar o mart.
@@ -18,16 +19,16 @@ o diferencial de LLM com guardrails em cima do pipeline. Use para:
 ## Setup (60s antes de apresentar)
 
 ```bash
-./scripts/demo_bonus_warmup.sh
+./scripts/demo_bonus4_warmup.sh
 # Ou com ids específicos:
-#   ID_APROVADO=1 ID_LIMITE=23 ID_NEGADO=171 ./scripts/demo_bonus_warmup.sh
+#   ID_APROVADO=1 ID_LIMITE=23 ID_NEGADO=171 ./scripts/demo_bonus4_warmup.sh
 ```
 
 Pré-aquece o endpoint com 3 `applicant_id`s (um por tier) pra popular o
 cache por chave. Abre Swagger, Actions e o último
-`reports/eval_explainer_*.json` no VS Code (se `code` estiver no PATH).
+`reports/eval_explainer_rule_*.json` no VS Code (se `code` estiver no PATH).
 
-**Antes da primeira demo pública:** rode `python scripts/eval_explainer.py
+**Antes da primeira demo pública:** rode `python scripts/eval_explainer_rule.py
 --n 30` uma vez, revise manualmente as narrativas do JSON de saída, e
 escolha 3 ids cujas respostas você já aprovou. Use-os como
 `ID_APROVADO` / `ID_LIMITE` / `ID_NEGADO`. Nunca digite um id "qualquer"
@@ -41,7 +42,7 @@ na hora da demonstração.
 ### Beat 1 — Decisão APROVADA (60s)
 
 - Tab ativa: **Swagger**.
-- Clica `/explain-decision/{applicant_id}` → `1` (ou o `ID_APROVADO`) →
+- Clica `/explain-decision/rule/{applicant_id}` → `1` (ou o `ID_APROVADO`) →
   Execute.
 - Aponta no JSON:
   - `decision: "APROVADO"`, `risk_tier: "LOW"`.
@@ -54,7 +55,7 @@ na hora da demonstração.
 
 ### Beat 2 — Decisão NEGADA (90s)
 
-- Swagger → `/explain-decision/171` (ou `$ID_NEGADO`) → Execute.
+- Swagger → `/explain-decision/rule/171` (ou `$ID_NEGADO`) → Execute.
 - Aponta:
   - `decision: "NEGADO"`, `risk_tier: "HIGH"`.
   - `key_factors`: ao menos 1 com `direction: alto_aumenta_risco`.
@@ -62,13 +63,13 @@ na hora da demonstração.
     com o cursor: "`revolving_utilization: 0.95` aqui, `0,95` na
     narrativa — mesmo valor").
 - Fala: "O LLM não escolhe quais features mencionar — o extrator
-  determinístico em `src/decision_explainer.py` pega os 3 de maior
+  determinístico em `src/decision_explainer_rule.py` pega os 3 de maior
   desvio vs mediana da carteira, e passa pro prompt. O LLM só narra.
   Essa separação é o que faz o compliance aprovar."
 
 ### Beat 3 — Ponto alto: eval como gate de CI (2 min)
 
-- Tab ativa: **VS Code com `reports/eval_explainer_*.json` aberto**.
+- Tab ativa: **VS Code com `reports/eval_explainer_rule_*.json` aberto**.
 - Aponta os campos na ordem:
   1. `pass_rate_grounded: 1.0` — "nenhuma alucinação numérica em 21
      amostras. O check é regex: todo número na `narrative` precisa
