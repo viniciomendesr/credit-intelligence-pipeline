@@ -124,30 +124,47 @@ de US$5 da Anthropic.
 
 ---
 
-### 2026-04-19 — iterações no check de `grounded-ness` (3 bugs, 3 fixes)
+### 2026-04-19 — iterações no check de `grounded-ness` (4 bugs, 4 fixes)
 
 **Contexto.** Primeira execução do eval devolveu `pass_rate_grounded: 0.24`
-— indicando 76% de alucinação. Investigação revelou que o LLM estava
-fiel; o check tinha falsos positivos em 3 categorias.
+— indicando 76% de "alucinação". Investigação ao longo de 5 runs
+(~US$0,10 total) revelou que o LLM estava fiel; o check tinha **falsos
+positivos em 4 categorias**. Progressão: 0.24 → 0.62 → 0.67 → 0.90 → 1.00.
 
 **Bug 1: formato BR não reconhecido.** LLM escreve `R$ 5.400,00`; regex pegava
 `5.400` e convertia pra float `5.4` (formato americano). Fix: normalizar BR
 antes do regex — ponto como milhar vira nada, vírgula como decimal vira
-ponto. **Resultado:** `grounded` passou de 0.24 → 0.62.
+ponto. **Resultado:** 0.24 → 0.62.
 
 **Bug 2: números em labels não considerados válidos.** LLM cita "atrasos
 médios de 60-89 dias" — `60` e `89` vêm do label da feature, não do
 `value`/`median`. Fix: incluir no pool de valid_values os números extraídos
-dos labels.
+dos labels via regex.
 
-**Bug 3: percentual como representação de decimal.** LLM escreve "utiliza
+**Bug 3: percentual como representação de decimal < 1.** LLM escreve "utiliza
 apenas 2% do limite" quando o value é `0.02`. Transformação matematicamente
 correta e user-friendly, mas `2` não aparece literalmente nos key_factors.
 Fix: aceitar `value * 100` como representação válida quando `0 < |value| < 1`.
+**Resultado:** 0.67 → 0.90.
+
+**Bug 4: off-by-one no bound + `deviation_ratio` ignorado.** Duas falhas
+remanescentes num único fix:
+
+- `value = 1.0` (uso total do limite rotativo) caía fora de `0 < |v| < 1` —
+  strict less than excluía o próprio 1.0. LLM narrava "100%", check flagueava.
+  Fix: mudar pra `<= 1`.
+- `deviation_ratio = 0.85` é metadado não passado no prompt, mas o LLM
+  computa a mesma coisa (`(10000 - 5400) / 5400 ≈ 85%`) e escreve "85% acima
+  da mediana". Fix: incluir `deviation_ratio` e `deviation_ratio * 100` no
+  pool — se o LLM fez a mesma conta que o extrator, é grounded.
+
+**Resultado final:** 0.90 → 1.00. Todos os 3 checks em 1.0, exit 0.
 
 **Meta-lição.** Eval de LLM em primeira iteração é tão defeituoso quanto o
 LLM. A ordem correta: construir eval → ver falhas → assumir primeiro que é
-o eval errado → só depois suspeitar do LLM. Aplicado aqui, salvou tempo.
+o eval errado → só depois suspeitar do LLM. Aplicado aqui, todos os 4 bugs
+eram do check, nenhum do LLM. Salvou tempo de prompt engineering
+desnecessário.
 
 ---
 
