@@ -32,3 +32,6 @@ context/
 
 # Jupyter checkpoints
 .ipynb_checkpoints/
+
+# Worktrees e estado do Claude Code
+.claude/
