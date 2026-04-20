@@ -44,87 +44,109 @@ def _ensure_model_local() -> str | None:
 # ──────────────────────────────────────────────────────────────────────────
 
 API_DESCRIPTION = """
-API pública de análise de crédito com decisão explicável via LLM.
-Parte do [Credit Intelligence Pipeline Lab](https://github.com/viniciomendesr/credit-intelligence-pipeline-lab)
-— projeto pedagógico pessoal de engenharia de dados/IA aplicada a crédito.
+API pública de análise de crédito com decisão explicável via LLM. Parte do
+[Credit Intelligence Pipeline Lab](https://github.com/viniciomendesr/credit-intelligence-pipeline-lab),
+projeto pedagógico pessoal de engenharia de dados/IA aplicada a crédito.
 
-## 🚀 Quickstart em 30 segundos
+## Quickstart em 30 segundos
 
-1. **Expanda** `GET /risk-summary` → **Try it out** → **Execute**.
-   Você verá a distribuição da carteira (~144k registros).
-2. **Expanda** `GET /explain-decision/rule/{applicant_id}` → **Try it out** →
-   digite `37167` → **Execute**. LLM narra uma decisão APROVADO via regra SQL.
-3. **Expanda** `GET /explain-decision/ml/{applicant_id}` → **Try it out** →
-   digite `37167` → **Execute**. Agora a narrativa vem do modelo XGBoost + SHAP.
+1. Expanda `GET /risk-summary` → `Try it out` → `Execute`. Você verá a
+   distribuição da carteira (~144k registros).
+2. Expanda `GET /explain-decision/rule/{applicant_id}` → `Try it out` →
+   digite `37167` → `Execute`. O LLM narra uma decisão APROVADO via regra
+   SQL.
+3. Expanda `GET /explain-decision/ml/{applicant_id}` → `Try it out` →
+   digite `37167` → `Execute`. Agora a narrativa vem do modelo XGBoost
+   com SHAP values.
 
-## 🎯 IDs sugeridos — compare v1 (rule) vs v2 (ml) no mesmo tomador
+## IDs sugeridos — compare v1 (rule) e v2 (ml) no mesmo tomador
 
 | ID | Tier (rule) | Prob (ml) | Por que testar |
 |---:|---|---|---|
-| **37167** | LOW | ~1% | APROVADO em ambos — caso fácil |
-| **50821** | MEDIUM | ~7% | LIMITE em ambos — caso intermediário |
-| **23380** | HIGH | ~36% | **divergência:** rule NEGA, ML dá LIMITE — regra univariada vs. modelo multivariado |
+| `37167` | LOW | ~1% | APROVADO nas duas versões — caso fácil |
+| `50821` | MEDIUM | ~7% | LIMITE nas duas versões — caso intermediário |
+| `23380` | HIGH | ~36% | Divergência: rule nega, ml dá LIMITE — regra univariada vs. modelo multivariado |
 
-O ID **23380** é o caso mais didático: o modelo treinado em 144k
-históricos é **menos conservador** que a regra SQL baseada apenas em
+O ID `23380` é o caso mais didático. O modelo treinado em 144k históricos
+é menos conservador que a regra SQL baseada apenas em
 `revolving_utilization > 0.9`.
 
-## 🧠 O que cada endpoint retorna
+## O que cada endpoint retorna
 
-- **v1 (rule)**: decisão vem da regra SQL da Fase 2 (categórica: LOW/MEDIUM/HIGH).
-  Extrator escolhe top-3 fatores por **desvio vs. mediana** da carteira.
-- **v2 (ml)**: decisão vem de probabilidade calibrada do XGBoost
-  (AUC 0.857 vs 0.764 do baseline rule-based). Extrator escolhe top-3
-  fatores por **SHAP values nativos** do XGBoost. Threshold: `<0.30 → APROVADO`,
-  `0.30-0.60 → LIMITE`, `≥0.60 → NEGADO`.
+**v1 (rule)** — decisão vem da regra SQL da Fase 2 (categórica:
+LOW/MEDIUM/HIGH). O extrator escolhe os 3 fatores com maior desvio
+absoluto em relação à mediana da carteira.
 
-Ambos têm **guardrails contra alucinação** no prompt (LLM só pode citar valores
-passados pelo extrator determinístico) e **eval programático** validado com
-pass rate ≥ 95% em 21 amostras estratificadas.
+**v2 (ml)** — decisão vem da probabilidade calibrada do XGBoost (AUC
+0.857 vs 0.764 do baseline rule-based). O extrator escolhe os 3 fatores
+com maior contribuição SHAP individual. Thresholds: `<0.30 → APROVADO`,
+`0.30–0.60 → LIMITE`, `≥0.60 → NEGADO`.
 
-## 📊 Dataset
+As duas versões têm guardrails contra alucinação no prompt (o LLM só
+pode citar valores passados pelo extrator determinístico) e eval
+programático validado com pass rate ≥ 95% em 21 amostras estratificadas.
+
+## Dataset
 
 [Kaggle Give Me Some Credit](https://www.kaggle.com/competitions/GiveMeSomeCredit)
-(2011) — ~150k tomadores anônimos, 11 features, label `defaulted`
-(inadimplência 90+ dias em 2 anos). IDs válidos variam de ~1 a ~150000
-(alguns excluídos por outliers).
+(2011) — aproximadamente 150 mil tomadores anônimos, 11 features, label
+`defaulted` (inadimplência 90+ dias em 2 anos). IDs válidos variam de
+~1 a ~150000.
 
-## 💰 Custo por chamada (Anthropic Claude Haiku 4.5)
+## Custo
 
-Cada chamada aos endpoints de explicação custa ~US$ 0,001 (≈ R$ 0,005).
-Cache por chave com TTL de 30 minutos economiza repetições.
+Cada chamada aos endpoints de explicação custa cerca de US$ 0,001
+(≈ R$ 0,005) em tokens da Anthropic Claude Haiku 4.5. O cache por chave
+com TTL de 30 minutos elimina repetições no mesmo ID.
 
-## 📁 Código-fonte
+## Código-fonte
 
-Ver [github.com/viniciomendesr/credit-intelligence-pipeline-lab](https://github.com/viniciomendesr/credit-intelligence-pipeline-lab).
+[github.com/viniciomendesr/credit-intelligence-pipeline-lab](https://github.com/viniciomendesr/credit-intelligence-pipeline-lab)
 """
 
 TAGS_METADATA = [
     {
         "name": "Status",
         "description": (
-            "Saúde da API e estatísticas agregadas da carteira. "
-            "Use estes endpoints primeiro para ver o contexto antes de "
-            "pedir explicações individuais."
+            "Saúde da API e estatísticas agregadas da carteira. Use estes "
+            "endpoints primeiro para ter contexto antes de pedir "
+            "explicações individuais."
         ),
     },
     {
         "name": "Explicabilidade v1 (rule-based)",
         "description": (
-            "LLM narra a decisão gerada pela **regra SQL** da Fase 2. "
-            "Top-3 fatores escolhidos por desvio-vs-mediana da carteira. "
-            "Decisão categórica (LOW/MEDIUM/HIGH)."
+            "O LLM narra a decisão gerada pela regra SQL da Fase 2. Top-3 "
+            "fatores escolhidos por desvio em relação à mediana da "
+            "carteira. Decisão categórica: LOW, MEDIUM ou HIGH."
         ),
     },
     {
         "name": "Explicabilidade v2 (modelo ML)",
         "description": (
-            "LLM narra a decisão do **XGBoost calibrado** da Fase 5. "
-            "Top-3 fatores escolhidos por SHAP values nativos. Decisão "
-            "derivada de probabilidade calibrada (`pred_default_prob`)."
+            "O LLM narra a decisão do XGBoost calibrado da Fase 5. Top-3 "
+            "fatores escolhidos por SHAP values nativos. Decisão derivada "
+            "da probabilidade calibrada (`pred_default_prob`)."
         ),
     },
 ]
+
+
+SWAGGER_UI_PARAMETERS = {
+    # Anchors clicáveis em cada endpoint (URL reflete qual está aberto)
+    "deepLinking": True,
+    # Esconde a seção "Schemas" no final — não temos Pydantic models
+    "defaultModelsExpandDepth": -1,
+    # Mostra latência de cada request executada
+    "displayRequestDuration": True,
+    # Começa com endpoints colapsados (só título + summary visível)
+    "docExpansion": "list",
+    # Barra de busca por endpoint
+    "filter": True,
+    # Tema de sintaxe mais legível para snippets JSON
+    "syntaxHighlight.theme": "tomorrow-night",
+    "tryItOutEnabled": True,
+}
 
 
 app = FastAPI(
@@ -132,6 +154,7 @@ app = FastAPI(
     description=API_DESCRIPTION,
     version="0.1.0",
     openapi_tags=TAGS_METADATA,
+    swagger_ui_parameters=SWAGGER_UI_PARAMETERS,
     contact={
         "name": "credit-intelligence-pipeline-lab",
         "url": "https://github.com/viniciomendesr/credit-intelligence-pipeline-lab",
