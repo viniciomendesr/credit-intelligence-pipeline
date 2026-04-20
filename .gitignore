@@ -23,8 +23,8 @@ credentials.json
 # macOS
 .DS_Store
 
-# Guia do hackathon — material de estudo privado
-context/
+# Guia pedagógico — em `context/projeto-pedagogico/` é público (material de estudo).
+# Workflow ignora mudanças nessa pasta para não disparar deploy (paths-ignore).
 
 # Editor
 .vscode/

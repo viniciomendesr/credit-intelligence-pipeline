@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fase 2 — SQL + Modelagem</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-theme">
+</head>
+<body data-page-key="recall_fase2">
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html">Hub</a>
+      <a href="fase-1.html">Fase 1</a>
+      <a href="fase-2.html" class="active">Fase 2</a>
+      <a href="fase-3.html">Fase 3</a>
+      <a href="fase-4.html">Fase 4</a>
+      <a href="bonus-fase4.html">Bônus F4 ✨</a>
+      <a href="fase-5.html">Fase 5</a>
+      <a href="bonus-fase5.html">Bônus F5 ✨</a>
+      <a href="docs.html">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()"><span id="theme-icon">🌙</span> <span id="theme-label">Dark</span></button>
+  </div>
+</div>
+<div class="container">
+
+<div class="phase-header">
+  <div class="phase-label">Fase 2 · SQL + Modelagem de dados</div>
+  <div class="phase-question">"Como você estrutura dados brutos em camadas que separam o que veio da fonte do que está pronto para ML — e como faz isso com SQL de forma reproduzível?"</div>
+</div>
+
+<p><strong>Entrega:</strong> <code>src/transform.py</code> + arquivos <code>.sql</code> em <code>models/</code> + <code>02_data_model.ipynb</code> documentando decisões de modelagem.</p>
+<p><strong>Pré-requisito:</strong> <code>data/staging/credit_applications.parquet</code> gerado na Fase 1.</p>
+
+<hr>
+
+<div class="phase-flow">
+  <div class="phase-flow-title">🔗 Como os desafios se conectam nesta fase</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">2.1 · Notebook</div>
+      <div class="flow-step-label">DuckDB interativo</div>
+      <div class="flow-step-out">SQL direto no Parquet da Fase 1 — você aprende a sintaxe e formula hipóteses analíticas</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">2.2 · models/</div>
+      <div class="flow-step-label">Staging + Mart SQL</div>
+      <div class="flow-step-out">Lógica de limpeza e features derivadas codificada em arquivos .sql reutilizáveis</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">2.3 · transform.py</div>
+      <div class="flow-step-label">run_model()</div>
+      <div class="flow-step-out">Executa os .sql via Python e salva Parquet — será chamado pelo Prefect na Fase 3</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">2.4 · tests/</div>
+      <div class="flow-step-label">pytest</div>
+      <div class="flow-step-out">Garante que o mart é válido antes de expor via API — também rodará no CI/CD da Fase 4</div>
+    </div>
+  </div>
+</div>
+
+<div class="connect-note">
+  <strong>O padrão staging → mart:</strong> staging é o dado fiel à fonte, só limpo (snake_case, sem duplicatas, sem inválidos). Mart é o dado com lógica de negócio (features derivadas, classificação de risco). Nunca misture os dois na mesma query — é o erro mais comum de quem começa em DE e o padrão que o dbt consolidou na indústria.
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 2.1 — Primeiro contato com DuckDB <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>02_data_model.ipynb</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase2" data-challenge="2.1" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> data/staging/credit_applications.parquet</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> 4 respostas analíticas com hipóteses documentadas</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Explore 4 hipóteses analíticas em <code>02_data_model.ipynb</code> usando <code>duckdb.connect()</code> sem argumento — banco em memória, lê o Parquet direto. Para cada hipótese, escreva a previsão em markdown <em>antes</em> do código. Os valores aqui viram benchmarks do <code>/risk-summary</code> na Fase 3.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Query 1 — default por faixa etária:</strong> <code>CASE WHEN age BETWEEN 18 AND 30 THEN '18-30' WHEN age BETWEEN 31 AND 50 THEN '31-50' ELSE '51+' END AS age_group</code> + <code>ROUND(AVG(SeriousDlqin2yrs)*100, 2) AS default_rate_pct</code> + <code>GROUP BY age_group</code></li>
+      <li><strong>Query 2 — renda mediana por status:</strong> <code>MEDIAN(MonthlyIncome)</code> agrupado por <code>SeriousDlqin2yrs</code> — não AVG; escreva antes por que mediana é a métrica correta dado o que você viu nos percentis do 1.1</li>
+      <li><strong>Query 3 — atrasos severos:</strong> <code>WHERE NumberOfTime30_59DaysPastDueNotWorse &gt; 3</code> + <code>COUNT(*) * 100.0 / SUM(COUNT(*)) OVER ()</code> para ter a proporção sem subquery</li>
+      <li><strong>Query 4 — correlação:</strong> <code>ROUND(CORR(DebtRatio, SeriousDlqin2yrs), 4) AS correlation</code> — preveja o sinal antes de executar; 4 casas para comparar com o valor real</li>
+    </ul>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Conectar DuckDB e ler o Parquet</span>
+        </div>
+        <div class="step-body">
+          <p>Crie a conexão com <code>con = duckdb.connect()</code> — sem argumento significa banco em memória, nada persiste no disco. Depois leia o Parquet direto na query: <code>FROM 'data/staging/credit_applications.parquet'</code> sem importar nem criar tabela. <strong>Antes de rodar:</strong> o que acontece se o caminho do arquivo estiver errado? DuckDB lança erro na hora de executar a query ou na hora de conectar?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Escrever as 4 queries analíticas</span>
+        </div>
+        <div class="step-body">
+          <p>Quatro queries em ordem: (1) faixas etárias com <code>CASE WHEN age BETWEEN 18 AND 30 THEN '18-30' ... END AS age_group</code> + <code>COUNT(*)</code>; (2) renda mediana com <code>MEDIAN(MonthlyIncome)</code> agrupado por <code>SeriousDlqin2yrs</code> — não AVG, porque renda tem cauda longa; (3) atrasos severos com <code>WHERE NumberOfTime30_59DaysPastDueNotWorse &gt; 3</code> + proporção via <code>COUNT(*) * 100.0 / SUM(COUNT(*)) OVER ()</code> sem subquery; (4) correlação com <code>ROUND(CORR(DebtRatio, SeriousDlqin2yrs), 4)</code>. Finalize cada query com <code>.df()</code>. <strong>Antes de rodar:</strong> a correlação entre DebtRatio e default deve ser positiva ou negativa? Escreva sua previsão antes de ver o número.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Documentar hipóteses em markdown</span>
+        </div>
+        <div class="step-body">
+          <p>Para cada query, escreva uma célula markdown antes com sua hipótese e uma depois com o que foi surpreendente. Esses números viram benchmark para validar o endpoint <code>/risk-summary</code> na Fase 3 — se os valores divergirem muito, há um bug em alguma das etapas. <strong>Antes de escrever:</strong> você espera que a renda mediana de inadimplentes seja maior ou menor que a de adimplentes?</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete as queries DuckDB sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>import duckdb
+
+con = duckdb.<input class="code-blank" data-answer="connect" placeholder="???" size="9">()
+
+# Taxa de default por faixa etária
+df_age = con.execute("""
+    SELECT
+        CASE WHEN age <input class="code-blank" data-answer="BETWEEN" placeholder="???" size="9"> 18 AND 30 THEN '18-30'
+             WHEN age BETWEEN 31 AND 50 THEN '31-50'
+             ELSE '51+' END AS age_group,
+        ROUND(AVG(SeriousDlqin2yrs)*100, 2) AS default_rate_pct,
+        COUNT(*) AS total
+    FROM 'data/staging/credit_applications.parquet'
+    GROUP BY age_group ORDER BY age_group
+""").<input class="code-blank" data-answer="df" placeholder="???" size="4">()
+
+# Renda mediana por status de default
+df_income = con.execute("""
+    SELECT SeriousDlqin2yrs AS defaulted,
+           <input class="code-blank" data-answer="MEDIAN" placeholder="???" size="8">(MonthlyIncome) AS median_income
+    FROM 'data/staging/credit_applications.parquet'
+    GROUP BY defaulted
+""").df()
+
+# Atrasos curtos acima do limiar (hipótese: poucos applicants)
+df_late = con.execute("""
+    SELECT COUNT(*) AS n_applicants,
+           ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) <input class="code-blank" data-answer="OVER ()" placeholder="???" size="9">, 2) AS pct_total
+    FROM 'data/staging/credit_applications.parquet'
+    WHERE <input class="code-blank" data-answer="NumberOfTime30_59DaysPastDueNotWorse" placeholder="???" size="38"> > 3
+""").df()
+
+# Correlação DebtRatio × default
+df_corr = con.execute("""
+    SELECT ROUND(<input class="code-blank" data-answer="CORR" placeholder="???" size="6">(DebtRatio, SeriousDlqin2yrs), <input class="code-blank" data-answer="4" placeholder="?" size="3">) AS correlation
+    FROM 'data/staging/credit_applications.parquet'
+""").df()</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Rode as 4 queries no notebook. Para cada uma, verifique que a célula markdown anterior tem uma hipótese escrita antes da execução — não depois. Guarde os números produzidos: <code>default_rate</code> por faixa, renda mediana por status, correlação.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>4 DataFrames sem erro. Taxa de default varia entre faixas etárias (não é constante). Renda mediana de inadimplentes é menor que a de adimplentes. Correlação <code>DebtRatio × default</code> é positiva, mesmo que fraca. Esses números são seus benchmarks — guarde para comparar com o <code>/risk-summary</code> na Fase 3.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import duckdb
+con = duckdb.connect()
+
+# 1. Taxa de default por faixa etária
+print(con.execute("""
+    SELECT
+        CASE WHEN age BETWEEN 18 AND 30 THEN '18-30'
+             WHEN age BETWEEN 31 AND 50 THEN '31-50'
+             ELSE '51+' END AS age_group,
+        ROUND(AVG(SeriousDlqin2yrs)*100, 2) AS default_rate_pct,
+        COUNT(*) AS total
+    FROM 'data/staging/credit_applications.parquet'
+    GROUP BY age_group ORDER BY age_group
+""").df())
+
+# 2. Renda mediana por status de default
+print(con.execute("""
+    SELECT SeriousDlqin2yrs AS defaulted,
+           MEDIAN(MonthlyIncome) AS median_income
+    FROM 'data/staging/credit_applications.parquet'
+    GROUP BY defaulted
+""").df())
+
+# 3. Applicants com muitos atrasos curtos (> 3) + percentual do total
+print(con.execute("""
+    SELECT COUNT(*) AS n_applicants,
+           ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) AS pct_total
+    FROM 'data/staging/credit_applications.parquet'
+    WHERE NumberOfTime30_59DaysPastDueNotWorse > 3
+""").df())
+
+# 4. Correlação DebtRatio × default (prever sinal antes de rodar)
+print(con.execute("""
+    SELECT ROUND(CORR(DebtRatio, SeriousDlqin2yrs), 4) AS correlation
+    FROM 'data/staging/credit_applications.parquet'
+""").df())</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 2.2 — Modelagem em camadas (Staging → Mart) <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivos: <code>models/*.sql</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase2" data-challenge="2.2" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> data/staging/credit_applications.parquet</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> models/stg_credit_applications.sql + models/mart_credit_features.sql</span>
+      <span class="io-badge">🔗 <strong>Executados por:</strong> run_model() no 2.3</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete dois arquivos SQL em <code>models/</code> com responsabilidades distintas: a staging limpa e renomeia, a mart deriva features para ML. A mart consome a staging por nome — não o Parquet diretamente.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Staging — limpeza:</strong> renomear para snake_case (<code>SeriousDlqin2yrs AS defaulted</code>, <code>MonthlyIncome AS monthly_income</code>, etc.), <code>NOW() AS loaded_at</code> para rastreabilidade, <code>WHERE age BETWEEN 18 AND 100 AND monthly_income &gt;= 0</code> — zero é válido, negativo não é</li>
+      <li><strong>Staging — deduplicação:</strong> <code>QUALIFY ROW_NUMBER() OVER (PARTITION BY age, monthly_income, debt_ratio ORDER BY 1) = 1</code> no final — sem subconsulta nem CTE; <code>ORDER BY 1</code> apenas para satisfazer a sintaxe</li>
+      <li><strong>Mart — features derivadas:</strong> <code>total_late_payments = late_30_59_days + late_60_89_days + late_90_days</code>; <code>has_90day_default = CASE WHEN late_90_days &gt; 0 THEN 1 ELSE 0 END</code></li>
+      <li><strong>Mart — <code>risk_tier</code>:</strong> HIGH se <code>revolving_utilization &gt; 0.9 OR late_90_days &gt; 2</code>, MEDIUM se <code>revolving_utilization &gt; 0.5 OR late_30_59_days &gt; 1</code>, LOW nos demais — validar que nenhuma categoria supera 90% dos registros</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que dois arquivos separados?</strong> A staging lê direto do Parquet da Fase 1. A mart lê da staging. Essa separação significa que se a lógica de <code>risk_tier</code> mudar, você mexe só na mart sem tocar na limpeza — e a staging pode ser reusada por outros marts no futuro. O <code>run_model()</code> do 2.3 cria a staging como view temporária antes de executar a mart.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Staging SQL — renomear e filtrar inválidos</span>
+        </div>
+        <div class="step-body">
+          <p>Use aliases longos (<code>SeriousDlqin2yrs AS defaulted</code>, <code>MonthlyIncome AS monthly_income</code>) e filtre com <code>WHERE age BETWEEN 18 AND 100 AND monthly_income >= 0</code>. Adicione <code>NOW() AS loaded_at</code> para rastrear quando o dado foi processado. <strong>Antes de escrever:</strong> por que manter <code>monthly_income = 0</code> mas remover os negativos? O que zero significa nesse contexto?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Remover duplicatas com QUALIFY</span>
+        </div>
+        <div class="step-body">
+          <p>Adicione ao final da staging: <code>QUALIFY ROW_NUMBER() OVER (PARTITION BY age, monthly_income, debt_ratio ORDER BY 1) = 1</code> — funciona como um <code>DISTINCT</code> baseado em colunas específicas, sem subconsulta nem CTE. <strong>Antes de rodar:</strong> quantas linhas a staging tem comparado ao Parquet original? Você espera poucos ou muitos duplicados?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Mart SQL — features derivadas e risk_tier</span>
+        </div>
+        <div class="step-body">
+          <p>No mart, escreva <code>FROM stg_credit_applications</code> (não do Parquet — o <code>run_model()</code> cria essa view antes de executar). Três colunas derivadas em sequência: <code>(late_30_59_days + late_60_89_days + late_90_days) AS total_late_payments</code>; depois <code>CASE WHEN late_90_days &gt; 0 THEN 1 ELSE 0 END AS has_90day_default</code> — flag binária, 1 se houve atraso grave; e por fim <code>risk_tier</code> com condições compostas: <code>revolving_utilization &gt; 0.9 OR late_90_days &gt; 2</code> = HIGH, <code>revolving_utilization &gt; 0.5 OR late_30_59_days &gt; 1</code> = MEDIUM, resto = LOW. <strong>Antes de rodar:</strong> testa a distribuição HIGH/MEDIUM/LOW — se for 99% LOW, os thresholds OR precisam de ajuste.</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete os padrões SQL sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>-- stg_credit_applications.sql
+SELECT
+    ROW_NUMBER() OVER ()          AS applicant_id,
+    SeriousDlqin2yrs              AS <input class="code-blank" data-answer="defaulted" placeholder="???" size="10">,
+    MonthlyIncome                 AS monthly_income,
+    age, DebtRatio AS debt_ratio
+FROM 'data/staging/credit_applications.parquet'
+WHERE age <input class="code-blank" data-answer="BETWEEN" placeholder="???" size="9"> 18 AND 100
+  AND monthly_income >= 0
+QUALIFY <input class="code-blank" data-answer="ROW_NUMBER" placeholder="???" size="12">() OVER (
+    PARTITION BY age, monthly_income, debt_ratio ORDER BY 1
+) = 1;
+
+-- mart_credit_features.sql
+SELECT *,
+    (late_30_59_days + late_60_89_days + late_90_days)
+        AS <input class="code-blank" data-answer="total_late_payments" placeholder="???" size="20">,
+    CASE WHEN late_90_days <input class="code-blank" data-answer=">" placeholder="???" size="3"> 0 THEN 1 ELSE 0 END
+        AS <input class="code-blank" data-answer="has_90day_default" placeholder="???" size="17">,
+    CASE
+        WHEN revolving_utilization > 0.9 OR late_90_days > 2 THEN '<input class="code-blank" data-answer="HIGH" placeholder="???" size="6">'
+        WHEN revolving_utilization > 0.5 OR late_30_59_days > 1 THEN '<input class="code-blank" data-answer="MEDIUM" placeholder="???" size="8">'
+        ELSE '<input class="code-blank" data-answer="LOW" placeholder="???" size="5">'
+    END AS risk_tier
+FROM <input class="code-blank" data-answer="stg_credit_applications" placeholder="???" size="24">;</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Cole o SQL da staging no DuckDB e rode: <code>SELECT COUNT(*) FROM stg_credit_applications</code>. Depois cole o SQL da mart e rode: <code>SELECT risk_tier, COUNT(*) as n FROM mart_credit_features GROUP BY risk_tier ORDER BY n DESC</code>.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Staging executa sem erro e retorna menos linhas que o CSV original (duplicatas removidas pelo <code>QUALIFY</code>). Mart tem exatamente três valores em <code>risk_tier</code>: HIGH, MEDIUM e LOW — nenhum com participação acima de 90%. Se for 99% LOW, os thresholds do <code>CASE WHEN</code> precisam ser revisados antes de avançar.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">-- models/stg_credit_applications.sql
+SELECT
+    ROW_NUMBER() OVER ()                     AS applicant_id,
+    SeriousDlqin2yrs                         AS defaulted,
+    RevolvingUtilizationOfUnsecuredLines     AS revolving_utilization,
+    age, DebtRatio AS debt_ratio,
+    MonthlyIncome AS monthly_income,
+    NumberOfOpenCreditLinesAndLoans          AS open_credit_lines,
+    NumberOfTimes90DaysLate                  AS late_90_days,
+    NumberOfTime30_59DaysPastDueNotWorse     AS late_30_59_days,
+    NumberOfTime60_89DaysPastDueNotWorse     AS late_60_89_days,
+    NumberOfDependents AS dependents, income_missing,
+    NOW() AS loaded_at
+FROM 'data/staging/credit_applications.parquet'
+WHERE age BETWEEN 18 AND 100 AND monthly_income >= 0
+QUALIFY ROW_NUMBER() OVER (PARTITION BY age, monthly_income, debt_ratio ORDER BY 1) = 1</code></pre>
+      <pre><code class="language-sql">-- models/mart_credit_features.sql
+-- Nota: depende de stg_credit_applications (criada como view pelo run_model)
+SELECT
+    applicant_id, defaulted, age, monthly_income, revolving_utilization,
+    debt_ratio, open_credit_lines, dependents, income_missing,
+    (late_30_59_days + late_60_89_days + late_90_days) AS total_late_payments,
+    CASE WHEN late_90_days > 0 THEN 1 ELSE 0 END AS has_90day_default,
+    CASE
+        WHEN revolving_utilization > 0.9 OR late_90_days > 2 THEN 'HIGH'
+        WHEN revolving_utilization > 0.5 OR late_30_59_days > 1 THEN 'MEDIUM'
+        ELSE 'LOW'
+    END AS risk_tier,
+    loaded_at
+FROM stg_credit_applications</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 2.3 — Executar modelos SQL via Python <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/transform.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase2" data-challenge="2.3" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> models/*.sql + Parquet de staging</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> data/marts/mart_credit_features.parquet</span>
+      <span class="io-badge">🔗 <strong>Importada por:</strong> flow.py do Prefect na Fase 3</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete <code>run_model(model_name, output_path)</code> em <code>src/transform.py</code> — executa um arquivo SQL via DuckDB e materializa o resultado como Parquet. A função é idempotente: rodar duas vezes não gera erro.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Diretório de saída:</strong> <code>Path(output_path).mkdir(parents=True, exist_ok=True)</code> — sem isso, <code>to_parquet()</code> falha com <code>FileNotFoundError</code></li>
+      <li><strong>Staging como view:</strong> <code>CREATE OR REPLACE VIEW stg_credit_applications AS {stg_sql}</code> — sempre, antes de qualquer modelo, porque a mart referencia esse nome</li>
+      <li><strong>Execução e persistência:</strong> <code>con.execute(sql).df()</code> e <code>.to_parquet(out, index=False)</code> — <code>index=False</code> evita coluna extra que quebraria o schema da API</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Como a mart enxerga a staging?</strong> O <code>run_model()</code> sempre cria a staging como view temporária antes de executar qualquer modelo — assim a mart pode usar <code>FROM stg_credit_applications</code> normalmente. É exatamente como o dbt orquestra dependências entre modelos.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Ler o arquivo SQL como texto</span>
+        </div>
+        <div class="step-body">
+          <p>Leia com <code>Path(f'models/{model_name}.sql').read_text()</code> — sem parser, sem template engine, só texto puro que vai para o DuckDB. <strong>Antes de escrever:</strong> o que acontece se o arquivo não existir? Python lança <code>FileNotFoundError</code> — e o usuário vê exatamente em qual modelo ocorreu o problema.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Criar staging como view antes de rodar qualquer modelo</span>
+        </div>
+        <div class="step-body">
+          <p>Execute <code>con.execute(f"CREATE OR REPLACE VIEW stg_credit_applications AS {stg_sql}")</code> — sempre, independente do modelo solicitado. Assim a mart pode usar <code>FROM stg_credit_applications</code> normalmente. <strong>Antes de rodar:</strong> por que <code>CREATE OR REPLACE</code> e não <code>CREATE</code>? O que acontece se rodar <code>run_model()</code> duas vezes?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Executar e salvar como Parquet</span>
+        </div>
+        <div class="step-body">
+          <p>Execute com <code>con.execute(sql).df()</code> para ter um DataFrame pandas, depois salve com <code>result.to_parquet(out, index=False)</code>. O <code>index=False</code> evita uma coluna extra de índice que quebraria a leitura do Parquet na FastAPI. <strong>Antes de rodar:</strong> o que é diferente no arquivo se você usar <code>index=True</code>?</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete a função run_model sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>import duckdb
+from pathlib import Path
+
+def run_model(model_name, output_path):
+    con = duckdb.<input class="code-blank" data-answer="connect" placeholder="???" size="9">()
+    Path(output_path).<input class="code-blank" data-answer="mkdir" placeholder="???" size="7">(parents=True, exist_ok=True)
+
+    # Cria staging como view (mart depende dela)
+    stg = Path('models/stg_credit_applications.sql').<input class="code-blank" data-answer="read_text" placeholder="???" size="11">()
+    con.execute(f"CREATE OR REPLACE VIEW stg_credit_applications AS {<input class="code-blank" data-answer="stg" placeholder="???" size="5">}")
+
+    # Executa o modelo solicitado
+    sql = Path(f'models/{model_name}.sql').read_text()
+    result = con.<input class="code-blank" data-answer="execute" placeholder="???" size="9">(sql).<input class="code-blank" data-answer="df" placeholder="???" size="4">()
+
+    out = Path(output_path) / f"{model_name}.parquet"
+    result.to_parquet(out, index=<input class="code-blank" data-answer="False" placeholder="???" size="7">)</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Execute: <code>python -c "from src.transform import run_model; run_model('mart_credit_features', 'data/marts/')"</code>. Depois verifique o resultado: <code>python -c "import pandas as pd; df = pd.read_parquet('data/marts/mart_credit_features.parquet'); print(df.shape, df['risk_tier'].value_counts(), df['risk_tier'].isnull().sum())"</code>. Rode a função uma segunda vez — deve funcionar sem erro.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Arquivo <code>data/marts/mart_credit_features.parquet</code> criado. Coluna <code>risk_tier</code> com zero nulos. Distribuição não degenerada entre HIGH, MEDIUM e LOW. A segunda execução sobrescreve sem erro — a função é idempotente.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import duckdb
+from pathlib import Path
+
+def run_model(model_name, output_path):
+    con = duckdb.connect()
+    Path(output_path).mkdir(parents=True, exist_ok=True)
+    # Sempre cria staging como view (mart depende dela)
+    stg = Path('models/stg_credit_applications.sql').read_text()
+    con.execute(f"CREATE OR REPLACE VIEW stg_credit_applications AS {stg}")
+    # Executa o modelo solicitado
+    sql = Path(f'models/{model_name}.sql').read_text()
+    result = con.execute(sql).df()
+    out = Path(output_path) / f"{model_name}.parquet"
+    result.to_parquet(out, index=False)
+    print(f"'{model_name}': {len(result)} registros → {out}")</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 2.4 — Testes de qualidade com pytest <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>tests/test_pipeline.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase2" data-challenge="2.4" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> data/marts/mart_credit_features.parquet</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> 3 testes — verde significa dado válido para produção</span>
+      <span class="io-badge">🔗 <strong>Executado por:</strong> Prefect (Fase 3) + GitHub Actions (Fase 4)</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete em <code>tests/test_pipeline.py</code> uma suite pytest com 3 testes de contrato de dados. A <code>@pytest.fixture</code> carrega o Parquet e injeta o DataFrame em cada teste pelo nome do parâmetro — não uma variável global.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Teste 1 — nulos:</strong> itere <code>['applicant_id', 'defaulted', 'risk_tier', 'total_late_payments']</code> com <code>assert mart[col].isnull().sum() == 0, f"Nulos em {col}"</code> — a mensagem identifica a coluna exata</li>
+      <li><strong>Teste 2 — valores de <code>risk_tier</code>:</strong> <code>set(mart['risk_tier'].unique()).issubset({'LOW', 'MEDIUM', 'HIGH'})</code> — <code>.issubset()</code> captura typos como <code>'high'</code> e <code>None</code> que um <code>==</code> simples deixaria passar</li>
+      <li><strong>Teste 3 — <code>total_late_payments</code>:</strong> <code>(mart['total_late_payments'] &gt;= 0).all()</code> — o <code>.all()</code> é obrigatório; sem ele, a asserção nunca falha independente dos dados</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que testar o Parquet e não o código?</strong> Você testa o dado porque é ele que vai alimentar a API e os modelos. Um teste que passa não garante que o código é perfeito — garante que o resultado atende ao contrato de qualidade. Na Fase 3, o Prefect vai rodar pytest como última task: se falhar, o pipeline para. Na Fase 4, o GitHub Actions faz o mesmo antes de qualquer deploy.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Fixture pandas para carregar o Parquet</span>
+        </div>
+        <div class="step-body">
+          <p>Crie <code>@pytest.fixture</code> com <code>return pd.read_parquet('data/marts/mart_credit_features.parquet')</code> — o pytest injeta o DataFrame em cada teste automaticamente pelo nome do parâmetro. <strong>Antes de escrever:</strong> o que diferencia um <code>@pytest.fixture</code> de uma variável global declarada no topo do arquivo? (resposta: escopo e isolamento entre testes)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Testar nulos em colunas críticas</span>
+        </div>
+        <div class="step-body">
+          <p>Itere sobre as colunas críticas e verifique com <code>assert mart[col].isnull().sum() == 0, f"Nulos em {col}"</code> — o <code>f-string</code> na mensagem mostra qual coluna falhou. <strong>Antes de escrever:</strong> por que verificar coluna por coluna e não <code>mart.isnull().any().any()</code>? (resposta: a mensagem de erro fica inútil sem saber qual coluna)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Testar valores de risk_tier e late_payments</span>
+        </div>
+        <div class="step-body">
+          <p>Para <code>risk_tier</code>: <code>assert set(mart['risk_tier'].unique()).issubset({'LOW', 'MEDIUM', 'HIGH'})</code> — captura qualquer valor inesperado, incluindo <code>None</code> e typos. Para <code>total_late_payments</code>: <code>assert (mart['total_late_payments'] >= 0).all()</code>. <strong>Antes de rodar:</strong> se <code>risk_tier</code> tiver <code>NaN</code>, o teste passa ou falha? (<code>NaN</code> não é subconjunto de nenhum set — falha.)</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete os testes pytest sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>import pandas as pd, pytest
+
+@pytest.<input class="code-blank" data-answer="fixture" placeholder="???" size="9">
+def mart():
+    return pd.<input class="code-blank" data-answer="read_parquet" placeholder="???" size="13">('data/marts/mart_credit_features.parquet')
+
+def test_no_nulls_in_critical_columns(mart):
+    for col in ['applicant_id', 'defaulted', 'risk_tier']:
+        assert mart[col].<input class="code-blank" data-answer="isnull" placeholder="???" size="8">().<input class="code-blank" data-answer="sum" placeholder="???" size="5">() == 0, f"Nulos em {col}"
+
+def test_risk_tier_valid_values(mart):
+    valid = {'LOW', 'MEDIUM', 'HIGH'}
+    actual = <input class="code-blank" data-answer="set" placeholder="???" size="5">(mart['risk_tier'].<input class="code-blank" data-answer="unique" placeholder="???" size="8">())
+    assert actual.<input class="code-blank" data-answer="issubset" placeholder="???" size="10">(valid), f"Valores inválidos: {actual - valid}"
+
+def test_late_payments_non_negative(mart):
+    assert (mart['total_late_payments'] >= 0).<input class="code-blank" data-answer="all" placeholder="???" size="5">()</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Rode <code>pytest tests/ -v</code>. Para confirmar que os testes detectam falhas reais, injete um problema manualmente: abra o Python, carregue o Parquet, adicione um <code>None</code> em <code>risk_tier</code>, salve — e rode <code>pytest</code> novamente.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>3 testes <code>PASSED</code>, nenhum <code>WARNING</code> sobre fixtures não coletadas. Ao injetar um nulo artificialmente, o teste <code>test_no_nulls_in_critical_columns</code> aparece como <code>FAILED</code> com a mensagem exata de qual coluna falhou — não só "assertion error". Se qualquer teste falhar com os dados reais, há um bug na mart a corrigir antes de avançar para a Fase 3.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import pandas as pd, pytest
+
+@pytest.fixture
+def mart():
+    return pd.read_parquet('data/marts/mart_credit_features.parquet')
+
+def test_no_nulls_in_critical_columns(mart):
+    for col in ['applicant_id','defaulted','risk_tier','total_late_payments']:
+        assert mart[col].isnull().sum() == 0, f"Nulos em {col}"
+
+def test_risk_tier_valid_values(mart):
+    valid = {'LOW','MEDIUM','HIGH'}
+    actual = set(mart['risk_tier'].unique())
+    assert actual.issubset(valid), f"Valores inválidos: {actual - valid}"
+
+def test_late_payments_non_negative(mart):
+    assert (mart['total_late_payments'] >= 0).all()</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="variations">
+  <div class="variations-title">⚡ Variações deliberadas — escreva sua previsão antes de testar</div>
+  <ul class="checklist">
+    <li>Remove <code>QUALIFY</code> da staging. Quantas duplicatas surgem na mart? O que isso faria com um modelo de ML que treinou com esses dados?</li>
+    <li>Muda a lógica de <code>risk_tier</code> para usar <code>monthly_income</code> em vez de <code>revolving_utilization</code>. A distribuição HIGH/MEDIUM/LOW muda como?</li>
+    <li>Adiciona um 4º teste: default rate entre 5% e 15%. Ele passa? Se não, o que isso diz sobre o dado?</li>
+  </ul>
+</div>
+
+<div class="blank-test">
+  <strong>Teste da página em branco:</strong> fecha tudo. Novo arquivo. Conecta DuckDB no Parquet, calcula taxa de default por faixa etária. Sem consultar.
+</div>
+
+<div class="page-nav">
+  <a class="btn-nav" href="fase-1.html">← Fase 1: Ingestão</a>
+  <a class="btn-nav" href="fase-3.html">Fase 3: Orquestração →</a>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>

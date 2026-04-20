@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bônus Fase 5 — Explicabilidade via LLM (modelo ML + SHAP)</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-theme">
+<style>
+.bonus-banner {
+  background: linear-gradient(135deg, var(--accent-light), var(--purple));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.5rem; margin: 2rem 0;
+}
+.bonus-banner h2 { border: none; margin: 0 0 0.5rem; color: var(--accent); font-size: 1.1rem; }
+.bonus-banner p { margin: 0; font-size: 0.92rem; color: var(--text); line-height: 1.6; }
+.why-matters {
+  background: var(--bg-2); border-left: 3px solid var(--accent);
+  padding: 0.85rem 1.1rem; border-radius: 0 8px 8px 0;
+  font-style: italic; font-size: 0.9rem; color: var(--muted); margin: 1rem 0 0;
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html">Hub</a>
+      <a href="fase-1.html">Fase 1</a>
+      <a href="fase-2.html">Fase 2</a>
+      <a href="fase-3.html">Fase 3</a>
+      <a href="fase-4.html">Fase 4</a>
+      <a href="bonus-fase4.html">Bônus F4 ✨</a>
+      <a href="fase-5.html">Fase 5</a>
+      <a href="bonus-fase5.html" class="active">Bônus F5 ✨</a>
+      <a href="docs.html">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()"><span id="theme-icon">🌙</span> <span id="theme-label">Dark</span></button>
+  </div>
+</div>
+<div class="container">
+
+<div class="phase-header">
+  <div class="phase-label">✨ Bônus Fase 5 · Explicabilidade via LLM (v2 — modelo ML)</div>
+  <div class="phase-question">"O v1 narrava a regra SQL. Agora que existe um modelo treinado com AUC &gt; da regra (Fase 5), o LLM pode narrar <strong>a probabilidade real de default</strong> com feature importance principiada (SHAP) em vez de heurística de desvio-vs-mediana. Como isso muda a narrativa e a eval?"</div>
+</div>
+
+<div class="bonus-banner">
+  <h2>🧠 Por que refazer o explicável em cima do modelo (v2)</h2>
+  <p>O Bônus Fase 4 entregou o padrão: extrator determinístico + narrador LLM com guardrails. Mas o extrator usava uma <em>heurística</em> — "top 3 features com maior desvio vs. mediana da carteira". Funciona pra didática, não resiste a revisão técnica: a mediana da carteira não é uma referência causal do risco. O modelo ML da Fase 5 tem <strong>feature importance principiada</strong> via SHAP values — cada feature recebe um "crédito" quantificado pela contribuição real à <code>pred_default_prob</code> daquele tomador específico.</p>
+  <div class="why-matters">
+    "A v2 troca um único componente — a função que escolhe quais fatores mostrar — de heurística pra SHAP. Mesmo endpoint pattern, mesmo cache, mesmo prompt com guardrails, mesmo eval. O que ganho: explicações defensáveis em revisão de compliance, narrativas que citam probabilidade calibrada (34%) em vez de tier (MEDIUM), e a comparação side-by-side v1 vs v2 vira material de entrevista."
+  </div>
+</div>
+
+<p><strong>Entrega:</strong> <code>src/decision_explainer_ml.py</code> + endpoint <code>GET /explain-decision/ml/{applicant_id}</code> + script <code>scripts/eval_explainer_ml.py</code> espelhando os checks do v1 + runbook <code>demo-bonus-fase5.md</code>.</p>
+<p><strong>Pré-requisito:</strong> Fase 5 completa (<code>models/model.pkl</code> no GCS). Lib adicional: <code>shap</code> (<code>pip install shap</code>).</p>
+
+<hr>
+
+<div class="phase-flow">
+  <div class="phase-flow-title">🔗 Como os desafios se conectam neste módulo</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">B5.1 · src/decision_explainer_ml.py</div>
+      <div class="flow-step-label">SHAP + LLM</div>
+      <div class="flow-step-out">Carrega modelo, calcula SHAP values pra uma linha específica, seleciona top-3 features por |SHAP|, monta prompt com guardrails, chama LLM e devolve narrativa com <code>pred_default_prob</code></div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">B5.2 · api/main.py</div>
+      <div class="flow-step-label">Endpoint /explain-decision/ml/{id}</div>
+      <div class="flow-step-out">Mesmo shape do v1 (cache por chave + 404 em id inválido + 503 sem key), mas consulta o explainer ML em vez do rule-based</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">B5.3 · scripts/eval_explainer_ml.py</div>
+      <div class="flow-step-label">Eval espelhado</div>
+      <div class="flow-step-out">Mesmos 3 checks do v1 (grounded/aligned/forbidden) adaptados: <em>aligned</em> agora valida que <code>pred_default_prob &gt; 0.5</code> vem com fator de risco top-3, não <code>decision == NEGADO</code></div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">B5.4 · demo-bonus-fase5.md</div>
+      <div class="flow-step-label">Demo v2</div>
+      <div class="flow-step-out">Runbook paralelo ao <code>demo-bonus-fase4.md</code>, com comparação side-by-side: v1 e v2 pro mesmo <code>applicant_id</code> — narrativa muda, número aparece, SHAP substitui "desvio"</div>
+    </div>
+  </div>
+</div>
+
+<div class="connect-note">
+  <strong>O que muda e o que não muda de v1 pra v2:</strong> o <strong>endpoint pattern</strong> é idêntico (cache por chave, 404, 503, shape de resposta). O <strong>prompt com guardrails</strong> é quase idêntico (só troca "valores do extrator" por "SHAP values do modelo"). O <strong>eval com 3 checks</strong> é template idêntico. O que muda de verdade é <em>uma função</em>: <code>extract_context_ml</code> usa SHAP, <code>extract_context</code> usava desvio-vs-mediana. Essa é a beleza da arquitetura — a separação extrator/narrador permite trocar só o extrator.
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio B5.1 — Extrator de reason-codes via SHAP + narrador LLM <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/decision_explainer_ml.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="bonus5" data-challenge="B5.1" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> <code>applicant_id</code> + modelo carregado + mart</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> dict com <code>pred_default_prob</code>, <code>decision</code>, <code>key_factors</code> (top-3 por |SHAP|), <code>narrative</code>, <code>_usage</code></span>
+      <span class="io-badge">🔗 <strong>Chamado por:</strong> endpoint /explain-decision/ml do B5.2</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Duas funções em <code>src/decision_explainer_ml.py</code>:</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong><code>extract_context_ml(applicant_id, mart, model_bundle)</code>:</strong> calcula <code>pred_default_prob</code> via <code>model.predict_proba</code>, usa <code>shap.TreeExplainer</code> pra extrair SHAP values da linha específica, seleciona as 3 features com maior |SHAP|, mapeia decisão a partir de thresholds (<code>prob &lt; 0.3 → APROVADO</code>, <code>0.3-0.6 → APROVADO_COM_LIMITE</code>, <code>&gt; 0.6 → NEGADO</code>). Retorna dict determinístico.</li>
+      <li><strong><code>explain_decision_ml(applicant_id, ...)</code>:</strong> chama <code>extract_context_ml</code>, monta prompt com os SHAP factors (incluindo sinal: positivo aumenta risco, negativo reduz), chama LLM com guardrails iguais ao v1, devolve dict com <code>narrative</code>, <code>generated_at</code>, <code>_usage</code>.</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que SHAP e não só feature importance global?</strong> Feature importance global (<code>model.feature_importances_</code>) diz "renda é a feature mais importante no geral". SHAP diz "<em>para este tomador específico</em>, renda puxou a probabilidade em +0.12". A diferença: global é sobre o modelo; SHAP é sobre <strong>esta decisão</strong>. Pra explicar "por que VOCÊ foi negado", você precisa do local. É o que o Bacen quer e o que o SaaS parceiro renderiza no cliente final.
+    </div>
+    <span class="tag tag-hint">💡 Dica</span>
+    <p><code>shap.TreeExplainer(base_model)</code> é ~100x mais rápido que <code>KernelExplainer</code> porque tem fast-path pra tree-based. Cuidado: <code>CalibratedClassifierCV</code> envelopa o XGB — pra SHAP você pega <code>model.calibrated_classifiers_[0].estimator</code> (o estimator base). SHAP da linha retorna array; concatenar com nomes de features via <code>dict(zip(features, shap_values[0]))</code>.</p>
+    <span class="tag tag-criteria">🔧 Critério</span>
+    <p>(a) <code>extract_context_ml</code> é determinístico — mesmo id, mesma chamada, mesmos <code>key_factors</code>. (b) <code>sum</code> dos SHAP values + <code>expected_value</code> ≈ score pre-calibração do XGBoost (log-odds) — propriedade matemática que confirma que você usou SHAP corretamente. (c) A <code>narrative</code> cita pelo menos um número de <code>key_factors</code> (mesmo teste anti-alucinação do v1).</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import os
+from datetime import datetime
+import joblib
+import numpy as np
+import pandas as pd
+import shap
+from anthropic import Anthropic
+
+_CLIENT = None
+_BUNDLE = None
+_EXPLAINER = None
+
+def _get_bundle(path="models/model.pkl"):
+    global _BUNDLE, _EXPLAINER
+    if _BUNDLE is None:
+        _BUNDLE = joblib.load(path)
+        base = _BUNDLE["model"].calibrated_classifiers_[0].estimator
+        _EXPLAINER = shap.TreeExplainer(base)
+    return _BUNDLE, _EXPLAINER
+
+def _decision_from_prob(p: float) -> str:
+    if p < 0.30: return "APROVADO"
+    if p < 0.60: return "APROVADO_COM_LIMITE"
+    return "NEGADO"
+
+def extract_context_ml(applicant_id: int, mart: pd.DataFrame) -> dict:
+    bundle, explainer = _get_bundle()
+    model, features = bundle["model"], bundle["features"]
+    row_df = mart[mart["applicant_id"] == applicant_id]
+    if row_df.empty:
+        raise ValueError(f"applicant_id {applicant_id} não encontrado no mart")
+    X = row_df[features]
+    prob = float(model.predict_proba(X)[0, 1])
+    shap_vals = explainer.shap_values(X)[0]
+
+    factors = [
+        {"feature": f, "value": float(X.iloc[0][f]),
+         "shap_value": float(shap_vals[i]),
+         "direction": "aumenta_risco" if shap_vals[i] > 0 else "reduz_risco"}
+        for i, f in enumerate(features)
+    ]
+    factors.sort(key=lambda d: abs(d["shap_value"]), reverse=True)
+    return {
+        "applicant_id": int(applicant_id),
+        "pred_default_prob": round(prob, 4),
+        "decision": _decision_from_prob(prob),
+        "key_factors": factors[:3],
+    }
+
+def _build_prompt(ctx: dict) -> str:
+    fs = "\n".join(
+        f"- {f['feature']}={f['value']:.3f}  (SHAP={f['shap_value']:+.3f}, {f['direction']})"
+        for f in ctx["key_factors"]
+    )
+    pct = ctx["pred_default_prob"] * 100
+    return f"""Você é um analista de crédito de um motor de crédito B2B. Probabilidade estimada de inadimplência: {pct:.1f}%. Decisão: {ctx['decision']}.
+
+Fatores com maior contribuição individual (SHAP values):
+{fs}
+
+Escreva explicação em português, máximo 3 frases, pro próprio tomador.
+
+RESTRIÇÕES OBRIGATÓRIAS:
+- Cite APENAS os valores/percentuais listados acima. Não invente.
+- Não mencione raça, gênero, endereço, CEP ou atributo sensível.
+- Não prometa reversão. Seja factual."""
+
+def explain_decision_ml(applicant_id: int, mart: pd.DataFrame,
+                        model: str = "claude-haiku-4-5-20251001") -> dict:
+    global _CLIENT
+    if _CLIENT is None:
+        _CLIENT = Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    ctx = extract_context_ml(applicant_id, mart)
+    resp = _CLIENT.messages.create(
+        model=model, max_tokens=300,
+        messages=[{"role": "user", "content": _build_prompt(ctx)}],
+    )
+    return {
+        **ctx,
+        "narrative": resp.content[0].text,
+        "generated_at": datetime.now().isoformat(),
+        "_usage": {
+            "model": resp.model,
+            "input_tokens": resp.usage.input_tokens,
+            "output_tokens": resp.usage.output_tokens,
+        },
+    }</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio B5.2 — Endpoint /explain-decision/ml/{id} com cache por chave <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>api/main.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="bonus5" data-challenge="B5.2" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> <code>GET /explain-decision/ml/{applicant_id}</code></span>
+      <span class="io-badge">📤 <strong>Saída:</strong> JSON com <code>pred_default_prob</code>, <code>decision</code>, <code>key_factors</code> (SHAP), <code>narrative</code>, <code>cached</code></span>
+      <span class="io-badge">🔗 <strong>Irmão:</strong> <code>/explain-decision/rule/{id}</code> (Bônus F4) — mesmo shape, extrator diferente</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Adicionar em <code>api/main.py</code>: carregamento do modelo no startup (mesmo padrão do mart) + endpoint <code>/explain-decision/ml/{applicant_id}</code> com cache por chave separado do cache do v1.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Load do modelo no startup:</strong> função <code>_load_model()</code> que baixa <code>model-latest.pkl</code> do bucket <code>MODEL_BUCKET</code>/<code>MODEL_OBJECT</code> (ADC), fallback pra <code>models/model.pkl</code> local em dev</li>
+      <li><strong>Cache separado:</strong> <code>_explanation_cache_ml: dict[int, dict]</code> — não mistura com o cache do v1 porque a narrativa é diferente</li>
+      <li><strong>Erros:</strong> <code>404</code> em id ausente, <code>503</code> em <code>ANTHROPIC_API_KEY</code> missing, <code>503</code> também em modelo não carregado (bucket indisponível)</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que cache separado v1/v2?</strong> Mesmo <code>applicant_id</code>, dois endpoints, duas respostas diferentes. Compartilhar cache sobrescreveria uma com a outra. Duas chaves em um dict seria possível (<code>{('rule', 42): ..., ('ml', 42): ...}</code>) mas pra clareza pedagógica é mais honesto ter dois dicts separados e óbvios.
+    </div>
+    <span class="tag tag-hint">💡 Dica</span>
+    <p>A variável do modelo fica em escala de módulo (carregada uma vez por instância do Cloud Run). Se quiser hot-reload sem redeploy (trocar <code>model-latest.pkl</code> no GCS), adicione endpoint <code>POST /reload-model</code> — é uma variação. Pra produção de escala, usar Model Registry (Vertex AI), mas aqui é overkill.</p>
+    <span class="tag tag-criteria">🔧 Critério</span>
+    <p>(a) 3 curls sequenciais em 3 ids retornam cada um com <code>cached: false</code>; refazer retorna <code>cached: true</code>. (b) Comparar <code>/explain-decision/rule/42</code> e <code>/explain-decision/ml/42</code> — ambos funcionam, respostas têm <em>estrutura similar mas números diferentes</em>. (c) Testar com <code>MODEL_BUCKET</code> desconfigurado — fallback pra local deve funcionar em dev.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python"># adicionar em api/main.py
+import joblib
+from datetime import datetime, timedelta
+from fastapi import HTTPException
+from src.decision_explainer_ml import explain_decision_ml
+
+def _load_model():
+    bucket = os.getenv("MODEL_BUCKET")
+    obj = os.getenv("MODEL_OBJECT", "model-latest.pkl")
+    if bucket:
+        from google.cloud import storage
+        local = "/tmp/model.pkl"
+        storage.Client().bucket(bucket).blob(obj).download_to_filename(local)
+        return joblib.load(local)
+    return joblib.load("models/model.pkl")
+
+model_bundle = _load_model()  # carrega uma vez no import
+
+_explanation_cache_ml: dict[int, dict] = {}
+EXPLANATION_TTL_ML = timedelta(minutes=30)
+
+@app.get("/explain-decision/ml/{applicant_id}")
+def explain_ml(applicant_id: int):
+    now = datetime.now()
+    cached = _explanation_cache_ml.get(applicant_id)
+    if cached and (now - cached["_cached_at"]) < EXPLANATION_TTL_ML:
+        return {**{k: v for k, v in cached.items() if k != "_cached_at"}, "cached": True}
+
+    try:
+        result = explain_decision_ml(applicant_id, mart=df)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except KeyError:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY ausente")
+
+    _explanation_cache_ml[applicant_id] = {**result, "_cached_at": now}
+    return {**result, "cached": False}</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio B5.3 — Eval do explicador ML em lote <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>scripts/eval_explainer_ml.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="bonus5" data-challenge="B5.3" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> <code>mart</code> + modelo + 21 ids amostrados por faixa de <code>pred_default_prob</code></span>
+      <span class="io-badge">📤 <strong>Saída:</strong> <code>reports/eval_explainer_ml_&lt;ts&gt;.json</code> com pass rates + custo + latência</span>
+      <span class="io-badge">🔗 <strong>Gate de CI:</strong> exit 1 se <code>pass_rate_overall &lt; 0.95</code></span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Copia de <code>eval_explainer_rule.py</code> com <strong>3 adaptações</strong>:</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Amostragem:</strong> estratificar por <em>faixa de <code>pred_default_prob</code></em> (baixo [0, 0.3), médio [0.3, 0.6), alto [0.6, 1]) em vez de <code>risk_tier</code>, porque agora o modelo é que decide.</li>
+      <li><strong>Check <code>aligned</code>:</strong> se <code>decision == NEGADO</code>, pelo menos um fator no top-3 deve ter <code>shap_value &gt; 0</code> (empurrou prob pra cima) — mesma lógica do v1 (<code>direction == alto_aumenta_risco</code>), adaptada.</li>
+      <li><strong>Pool de valid_values no <code>grounded</code>:</strong> incluir <code>pred_default_prob</code> (e <code>*100</code>), <code>value</code> de cada feature, <code>shap_value</code>, <em>não</em> mais "mediana da carteira" (não aplicável aqui).</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que o template do v1 serve?</strong> A forma da resposta é a mesma: decisão + top-3 fatores + narrativa PT-BR. Os checks (grounded, aligned, forbidden) são propriedades de <em>qualquer narrativa que cita fatos estruturados</em>. Só os detalhes do pool de valores mudam. Se você teve que reescrever do zero, provavelmente abstraiu errado.
+    </div>
+    <span class="tag tag-criteria">🔧 Critério</span>
+    <p>Rodar <code>python scripts/eval_explainer_ml.py --n 21 --seed 42</code> gera <code>reports/eval_explainer_ml_&lt;ts&gt;.json</code>. Em run limpa: <code>pass_rate_overall &gt;= 0.95</code> e exit 0. Comparação side-by-side: abrir um eval_rule + um eval_ml e bater os campos <code>pass_rate_*</code> lado a lado — se a taxa do ML ficar muito abaixo, é sinal de prompt mal adaptado.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python"># O grande esqueleto vem de scripts/eval_explainer_rule.py.
+# Diferenças principais:
+
+def stratified_by_pred(mart_path, n, seed):
+    df = pd.read_parquet(mart_path)
+    # ... carrega modelo, roda predict_proba em tudo
+    # ... divide em 3 buckets: baixo (p<0.3), médio, alto
+    # ... sample n/3 de cada bucket
+    ...
+
+def check_aligned(result):
+    if result["decision"] != "NEGADO":
+        return True, ""
+    has_driver = any(f["shap_value"] > 0 for f in result["key_factors"])
+    return (True, "") if has_driver else (False, "NEGADO sem SHAP positivo no top-3")
+
+def _expand_valid_values(ctx):
+    out = [ctx["pred_default_prob"], ctx["pred_default_prob"] * 100]
+    for f in ctx["key_factors"]:
+        out.append(f["value"])
+        out.append(f["shap_value"])
+        if 0 < abs(f["value"]) <= 1:
+            out.append(f["value"] * 100)
+    return out</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio B5.4 — Demo ao vivo do explicador ML <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivos: <code>scripts/demo_bonus5_warmup.sh</code> + <code>demo-bonus-fase5.md</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="bonus5" data-challenge="B5.4" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> URL pública + 3 <code>applicant_id</code>s pré-validados (mesmos do v1 pra comparação)</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> warm-up que pré-aquece v1 <strong>e</strong> v2 + runbook com beats de comparação side-by-side</span>
+      <span class="io-badge">🔗 <strong>Complementa:</strong> <code>demo-bonus-fase4.md</code> — o momento wow é a comparação, não cada um sozinho</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Dois artefatos que permitem <strong>mostrar v1 e v2 lado a lado</strong> no mesmo tomador:</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong><code>scripts/demo_bonus5_warmup.sh</code>:</strong> roda <code>/health</code>, dispara <code>/explain-decision/rule/$id</code> E <code>/explain-decision/ml/$id</code> pros mesmos 3 ids pré-validados. Abre Swagger, GitHub Actions, e os últimos <code>eval_explainer_rule_*.json</code> + <code>eval_explainer_ml_*.json</code> no editor.</li>
+      <li><strong><code>demo-bonus-fase5.md</code>:</strong> runbook com 3 beats — (1) v1 do tomador 37167, (2) v2 do mesmo id ao lado, (3) ponto alto abrindo os dois eval reports + <code>reports/model_metrics.json</code> da Fase 5 (o AUC +0.12).</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que o demo definitivo é a comparação, não cada um isolado?</strong> Qualquer candidato mostra um endpoint de explicação. O diferencial é mostrar <strong>a mesma decisão explicada por duas lentes diferentes</strong>: "aqui é a regra SQL contando por que foi negado; aqui é o modelo ML contando a mesma coisa com probabilidade calibrada e SHAP. Reparem como a história muda." Em 90 segundos, você demonstra engenharia (mesmo padrão reusado), modelagem (treino + benchmark), e AI em produção (guardrails + eval).
+    </div>
+    <span class="tag tag-hint">💡 Dica</span>
+    <p>No Swagger, deixar <em>dois endpoints expandidos ao mesmo tempo</em> ajuda visualmente — o entrevistador enxerga lado a lado. Se preferir terminal, <code>diff &lt;(curl .../rule/$id | jq) &lt;(curl .../ml/$id | jq)</code> destaca o que mudou.</p>
+    <span class="tag tag-criteria">🔧 Critério</span>
+    <p>(a) O warm-up pré-aquece 6 combinações (3 ids × 2 endpoints) em &lt;15s. (b) Cronometrando o runbook em voz alta, o demo v1+v2+eval+metrics cabe em 5 minutos. (c) Na parte de comparação, a narrativa muda de forma perceptível — se não, um dos dois prompts está mal adaptado.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-bash">#!/usr/bin/env bash
+# scripts/demo_bonus5_warmup.sh
+set -euo pipefail
+URL="${1:-https://credit-api-10681834413.us-central1.run.app}"
+
+ID_APROVADO="${ID_APROVADO:-37167}"
+ID_LIMITE="${ID_LIMITE:-50821}"
+ID_NEGADO="${ID_NEGADO:-23380}"
+
+echo "▶ Warm-up v1 + v2: $URL"
+for pair in "APROVADO:$ID_APROVADO" "LIMITE:$ID_LIMITE" "NEGADO:$ID_NEGADO"; do
+  label="${pair%%:*}"; id="${pair##*:}"
+  echo "▶ v1 rule  ($label, $id)"; curl -s "$URL/explain-decision/rule/$id" | jq '{decision, narrative: .narrative[:80]}'
+  echo "▶ v2 ml    ($label, $id)"; curl -s "$URL/explain-decision/ml/$id"   | jq '{decision, pred_default_prob, narrative: .narrative[:80]}'
+done
+
+LATEST_RULE=$(ls -t reports/eval_explainer_rule_*.json 2>/dev/null | head -1 || true)
+LATEST_ML=$(ls -t reports/eval_explainer_ml_*.json 2>/dev/null | head -1 || true)
+METRICS=reports/model_metrics.json
+if command -v open &gt;/dev/null; then
+  open "$URL/docs"
+  [ -n "$LATEST_RULE" ] &amp;&amp; command -v code &gt;/dev/null &amp;&amp; code "$LATEST_RULE" "$LATEST_ML" "$METRICS"
+fi
+echo "✅ Pronto. Siga o demo-bonus-fase5.md."</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="variations">
+  <div class="variations-title">⚡ Variações deliberadas — escreva sua previsão antes de testar</div>
+  <ul class="checklist">
+    <li>Roda v1 e v2 no mesmo id 37167 (LOW tier). As narrativas divergem? Em tier MEDIUM (id 50821) divergem mais ou menos? E em HIGH (id 23380)? Em qual tier você espera maior delta entre rule vs ml?</li>
+    <li>Remove o <code>pred_default_prob</code> do prompt e passa só os top-3 SHAP. O LLM consegue inferir a decisão corretamente? Se sim, o prob é redundante na narrativa; se não, o prob é sinal necessário. Qual dos dois?</li>
+    <li>Substitui Haiku por Sonnet só no endpoint ml (onde a stakes é maior). Mede custo e latência delta. Vale?</li>
+    <li>No eval do v2, adiciona um 4º check: <code>pred_prob_cited</code> — a narrativa precisa mencionar o valor percentual calibrado. O que isso captura que os 3 originais não capturam?</li>
+  </ul>
+</div>
+
+<div class="blank-test">
+  <strong>Teste da página em branco:</strong> descreve em voz alta por que a v2 (SHAP) é pedagogicamente superior à v1 (desvio-vs-mediana) mesmo quando a narrativa final soa parecida. Se a resposta for "porque é mais bonito", não entendeu — a resposta certa tem a ver com causalidade e auditabilidade.
+</div>
+
+<div class="page-nav">
+  <a class="btn-nav" href="fase-5.html">← Fase 5: Modelo ML + Benchmark</a>
+  <a class="btn-nav disabled">Hub completo ✓</a>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>

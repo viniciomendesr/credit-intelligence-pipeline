@@ -185,6 +185,38 @@ vez de reprodução especulativa.
 
 ## processo e meta-decisões
 
+### 2026-04-20 — material pedagógico público + CI/CD nível 2 (branch protection + PR workflow)
+
+**Contexto.** Duas decisões entrelaçadas:
+
+1. A pasta `context/projeto-pedagogico/` (guia HTML + `melhorias-estruturais.md` + `pedagogical-inventory.md` + `platform-review.md`) era gitignored sob pretexto de "material de estudo privado". Na prática, o conteúdo **É** o valor pedagógico do projeto — manter privado escondia o que torna o projeto interessante pra quem aprende. Decisão: tornar público.
+
+2. O fluxo de CI/CD estava no **nível 1 de maturidade** (ver `melhorias-estruturais.md::T.10`): `push main → deploy prod`, sem PR, sem approval, sem staging. Funciona pra lab solo, mas não é o que qualquer time de fintech real faz.
+
+**Decisão.** Subir pro **nível 2**: branch protection em `main` + PR workflow obrigatório.
+
+Implementação concreta:
+
+- **`.gitignore`**: remover `context/` da lista de ignorados. Adicionar comentário explicando que o conteúdo é público mas o CI **ignora mudanças ali** via `paths-ignore` no workflow (evita redeploys desnecessários quando editamos docs).
+- **Branch protection em `main`** (via `gh api`):
+  - `required_pull_request_reviews` ativo (force push e push direto bloqueados)
+  - `required_status_checks.contexts = ["test"]` — PR não faz merge sem CI verde no job de test
+  - `required_approving_review_count: 0` — solo dev pode merge sozinho, mas tem que passar pelo PR
+  - `enforce_admins: false` — admin pode bypassar em emergência; a regra é speed-bump, não bloqueio permanente
+- **Fluxo daqui pra frente**: `git checkout -b feat/foo && ... && gh pr create` no lugar de `git push origin main`.
+
+**Alternativas consideradas:**
+
+- *Manter nível 1* — coerente com "projeto solo", mas perde o ensino do fluxo que o aluno vai ver no primeiro emprego em fintech.
+- *Pular pra nível 3 (staging + manual promotion)* — saltaria um degrau; PR workflow é pré-requisito.
+- *Nível 2 com `enforce_admins: true`* — mais rigoroso, mas trava o admin em emergências. Pra solo sem time, false é pragmático.
+
+**Trade-off aceito.** Fluxo fica mais lento (não dá mais `git push origin main` direto). Em contrapartida: o diff sempre passa por uma tela de PR, onde eu mesmo revejo antes de merge. Simula review sem precisar de segunda pessoa.
+
+**Meta-lição pedagógica.** Esse upgrade é parte do que T.10 (`melhorias-estruturais.md`) documentou como lacuna. Saiu de registro → implementação. Em time real, os próximos níveis seriam staging environment (nível 3), feature flags (nível 4), e canary + auto-rollback (nível 5).
+
+---
+
 ### 2026-04-19 — preservar evolução (sem force-push rebase no `main`)
 
 **Contexto.** Texto "entrevista" escrito originalmente nos runbooks de demo

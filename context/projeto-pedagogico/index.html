@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Credit Intelligence Pipeline — Hub</title>
+<link rel="stylesheet" href="style.css">
+<style>
+.hero {
+  padding: 3rem 0 2rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2.5rem;
+}
+.hero-label {
+  font-size: 0.78rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--accent); margin-bottom: 0.75rem;
+}
+.hero h1 { margin-bottom: 0.75rem; }
+.hero-sub { font-size: 1.05rem; color: var(--muted); max-width: 560px; line-height: 1.6; }
+.meta { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.25rem 0 0; }
+
+/* Phase grid */
+.phase-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 1rem; margin: 1.5rem 0; }
+
+.phase-card {
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.25rem; background: var(--bg-2);
+  display: flex; flex-direction: column; gap: 0.6rem;
+  text-decoration: none; color: var(--text);
+  transition: all 0.2s; box-shadow: var(--shadow);
+}
+.phase-card:hover {
+  border-color: var(--accent); box-shadow: var(--shadow-lg);
+  transform: translateY(-2px); text-decoration: none; color: var(--text);
+}
+.phase-card.bonus {
+  border-color: var(--accent); background: var(--accent-light);
+  grid-column: 1 / -1;
+}
+.phase-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.phase-num { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--accent); }
+.phase-status { font-size: 0.72rem; padding: 0.2rem 0.55rem; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+.status-todo { background: var(--bg-3); color: var(--muted); }
+.status-done { background: var(--green); color: var(--green-text); }
+.status-wip { background: var(--yellow); color: var(--yellow-text); }
+.phase-card h3 { margin: 0; font-size: 0.98rem; color: var(--text); }
+.phase-card p { font-size: 0.85rem; color: var(--muted); margin: 0; line-height: 1.5; }
+.phase-challenges { font-size: 0.78rem; color: var(--muted); }
+.phase-challenges span { color: var(--accent); font-weight: 600; }
+
+/* Summary stats */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin: 2rem 0; }
+.stat { text-align: center; padding: 1rem; background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--radius); }
+.stat-num { font-size: 1.8rem; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 0.78rem; color: var(--muted); margin-top: 0.2rem; }
+
+/* Stack pills */
+.stack { display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1rem 0; }
+.pill {
+  font-size: 0.75rem; font-weight: 500; padding: 0.25rem 0.65rem;
+  background: var(--bg-3); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--text);
+}
+
+/* Bonus highlight */
+.bonus-highlight {
+  background: linear-gradient(135deg, var(--accent-light), var(--purple));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.5rem; margin: 2rem 0;
+}
+.bonus-highlight h3 { color: var(--accent); margin-top: 0; }
+.bonus-highlight p { color: var(--text); font-size: 0.92rem; }
+.quote {
+  background: var(--bg-2); border-left: 3px solid var(--accent);
+  padding: 0.75rem 1rem; border-radius: 0 8px 8px 0;
+  font-style: italic; font-size: 0.9rem; color: var(--muted); margin-top: 0.75rem;
+}
+</style>
+</head>
+<body data-page-key="">
+
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Intelligence Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html" class="active">Hub</a>
+      <a href="fase-1.html">Fase 1</a>
+      <a href="fase-2.html">Fase 2</a>
+      <a href="fase-3.html">Fase 3</a>
+      <a href="fase-4.html">Fase 4</a>
+      <a href="bonus-fase4.html">Bônus F4 ✨</a>
+      <a href="fase-5.html">Fase 5</a>
+      <a href="bonus-fase5.html">Bônus F5 ✨</a>
+      <a href="docs.html">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()">
+      <span id="theme-icon">🌙</span>
+      <span id="theme-label">Dark</span>
+    </button>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="hero">
+    <div class="hero-label">🏦 Motor de crédito B2B · Data/AI Engineering · Projeto Pedagógico</div>
+    <h1>Credit Intelligence Pipeline</h1>
+    <p class="hero-sub">Pipeline de dados financeiros de ponta a ponta — do dado bruto ao modelo treinado + explicação de decisão em PT-BR. <strong>5 fases + 2 bônus</strong> em progressão pedagógica: v1 narra a regra SQL, v2 narra o modelo ML com SHAP.</p>
+    <div class="meta">
+      <span class="badge badge-blue">Python · DuckDB · FastAPI</span>
+      <span class="badge badge-green">Prefect · Docker · GCP</span>
+      <span class="badge badge-purple">LLM Agent · CI/CD</span>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-num">5</div><div class="stat-label">Fases</div></div>
+    <div class="stat"><div class="stat-num">28</div><div class="stat-label">Desafios</div></div>
+    <div class="stat"><div class="stat-num">10</div><div class="stat-label">Ferramentas</div></div>
+    <div class="stat"><div class="stat-num">1</div><div class="stat-label">URL em produção</div></div>
+  </div>
+
+  <h2>Stack completa</h2>
+  <div class="stack">
+    <span class="pill">Python 3.11</span>
+    <span class="pill">pandas</span>
+    <span class="pill">DuckDB</span>
+    <span class="pill">FastAPI</span>
+    <span class="pill">Prefect</span>
+    <span class="pill">Docker</span>
+    <span class="pill">GCP Cloud Run</span>
+    <span class="pill">GitHub Actions</span>
+    <span class="pill">pytest</span>
+    <span class="pill">LLM API</span>
+    <span class="pill">XGBoost</span>
+    <span class="pill">SHAP</span>
+  </div>
+
+  <h2>Fases do projeto</h2>
+
+  <div class="phase-grid">
+
+    <a class="phase-card" href="fase-1.html">
+      <div class="phase-card-top">
+        <div class="phase-num">Fase 1</div>
+        <span class="phase-status status-todo">Não iniciada</span>
+      </div>
+      <h3>Python puro: ingestão e validação</h3>
+      <p>Ingere dados de crédito de duas fontes (CSV + API simulada), valida com regras de negócio, e persiste como Parquet.</p>
+      <div class="phase-challenges"><span>4</span> desafios · pandas · faker · Parquet</div>
+    </a>
+
+    <a class="phase-card" href="fase-2.html">
+      <div class="phase-card-top">
+        <div class="phase-num">Fase 2</div>
+        <span class="phase-status status-todo">Não iniciada</span>
+      </div>
+      <h3>SQL + modelagem de dados</h3>
+      <p>Transforma dados brutos em camadas staging e mart com DuckDB e SQL. Cria feature tables para ML. Testa qualidade com pytest.</p>
+      <div class="phase-challenges"><span>4</span> desafios · DuckDB · SQL · pytest</div>
+    </a>
+
+    <a class="phase-card" href="fase-3.html">
+      <div class="phase-card-top">
+        <div class="phase-num">Fase 3</div>
+        <span class="phase-status status-todo">Não iniciada</span>
+      </div>
+      <h3>Orquestração + API</h3>
+      <p>Orquestra o pipeline com Prefect, expõe os dados via FastAPI, e containeriza tudo com Docker.</p>
+      <div class="phase-challenges"><span>3</span> desafios · Prefect · FastAPI · Docker</div>
+    </a>
+
+    <a class="phase-card" href="fase-4.html">
+      <div class="phase-card-top">
+        <div class="phase-num">Fase 4</div>
+        <span class="phase-status status-todo">Não iniciada</span>
+      </div>
+      <h3>Observabilidade + Deploy em GCP</h3>
+      <p>Logging estruturado, detecção de drift entre execuções, deploy no Cloud Run, CI/CD com GitHub Actions, e runbook de demo ao vivo.</p>
+      <div class="phase-challenges"><span>5</span> desafios · GCP Cloud Run · GitHub Actions · Demo</div>
+    </a>
+
+    <a class="phase-card bonus" href="bonus-fase4.html">
+      <div class="phase-card-top">
+        <div class="phase-num">✨ Bônus Fase 4 · v1 (regra SQL)</div>
+        <span class="phase-status" style="background:var(--purple);color:var(--purple-text);">Diferencial</span>
+      </div>
+      <h3>Explicabilidade via LLM v1 — LLM narra a classificação rule-based</h3>
+      <p>Endpoint <code>/explain-decision/rule/{id}</code> que extrai deterministicamente os 3 fatores de maior desvio vs. mediana da carteira e devolve narrativa PT-BR gerada por LLM com guardrails contra alucinação. O que o LLM narra aqui é a saída da regra SQL — é o primeiro passo da progressão pedagógica para reason-code em produção regulada.</p>
+      <div class="phase-challenges"><span>4</span> desafios · Anthropic API · /explain-decision/rule · eval programático · demo runbook</div>
+    </a>
+
+    <a class="phase-card" href="fase-5.html">
+      <div class="phase-card-top">
+        <div class="phase-num">Fase 5</div>
+        <span class="phase-status status-todo">Não iniciada</span>
+      </div>
+      <h3>Modelagem ML + benchmarking contra baseline rule-based</h3>
+      <p>Treina XGBoost no mart pra prever <code>defaulted</code>, calcula AUC/precision@k/log-loss, compara contra o baseline da regra SQL. Gera <code>models/model.pkl</code> versionado no GCS. Responde a pergunta clássica: "quanto um modelo ganha vs. uma regra boba?".</p>
+      <div class="phase-challenges"><span>4</span> desafios · scikit-learn · XGBoost · métricas · GCS</div>
+    </a>
+
+    <a class="phase-card bonus" href="bonus-fase5.html">
+      <div class="phase-card-top">
+        <div class="phase-num">✨ Bônus Fase 5 · v2 (modelo ML)</div>
+        <span class="phase-status" style="background:var(--purple);color:var(--purple-text);">Diferencial v2</span>
+      </div>
+      <h3>Explicabilidade via LLM v2 — LLM narra o modelo ML com SHAP</h3>
+      <p>Endpoint <code>/explain-decision/ml/{id}</code> com o mesmo shape do v1, mas agora o extrator determinístico usa <strong>SHAP values</strong> do modelo da Fase 5 no lugar de "desvio vs mediana". Substitui heurística por feature importance principiada. Eval e runbook espelham os do v1 — mesmo template, inputs diferentes.</p>
+      <div class="phase-challenges"><span>4</span> desafios · SHAP · /explain-decision/ml · eval comparativo · demo runbook v2</div>
+    </a>
+
+  </div>
+
+  <div class="bonus-highlight">
+    <h3>🎯 Por que a progressão v1 → v2 (e não só um bônus)</h3>
+    <p>Decisão de crédito no Brasil é caminho regulado (Res. 4.935/Bacen + CDC): o tomador tem direito a saber por que foi negado. Este projeto resolve isso em <strong>duas versões pedagogicamente distintas</strong>, porque os conceitos por trás — engenharia de AI vs. modelagem ML — são diferentes e merecem separação.</p>
+    <div class="repo">v1 (Bônus Fase 4)                      v2 (Bônus Fase 5)
+regra SQL da Fase 2                    modelo XGBoost da Fase 5
+        │                                       │
+        ▼                                       ▼
+   risk_tier categórico              pred_default_prob (0-1)
+        │                                       │
+        ▼                                       ▼
+   extract_context                    extract_context_ml
+   (desvio vs mediana)                (SHAP values)
+        │                                       │
+        ▼                                       ▼
+   LLM + guardrails                   LLM + guardrails
+        │                                       │
+        ▼                                       ▼
+   /explain-decision/rule/:id         /explain-decision/ml/:id
+
+ambos reusam: FastAPI + Cloud Run + cache por chave + eval programático</div>
+    <p><strong>O que muda de v1 pra v2:</strong> só o <em>input</em> do extrator determinístico (heurística de desvio → SHAP). Todo o resto — endpoint, cache, eval com 3 checks, runbook, guardrails contra alucinação — fica idêntico. Na entrevista, isso vira: <em>"resolvi o mesmo problema duas vezes porque queria sentir a diferença entre feature importance heurística e principiada."</em></p>
+    <p><strong>Três casos de uso concretos que justificam o esforço:</strong></p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.7; color: var(--text);">
+      <li><strong>Tela de negativa inline no SaaS parceiro</strong> — imobiliária, edtech ou healthtech renderiza <em>"Sua dívida atual representa 78% da renda (mediana da carteira: 35%). Você pode contestar enviando comprovante adicional."</em> em vez do genérico "negado por política interna". Reduz ticket de suporte e cumpre regulação.</li>
+      <li><strong>Fila de revisão do analista de risco</strong> — decisões borderline caem numa fila; o analista abre, o dashboard bate em <code>/explain-decision/ml/{id}</code>, vê os 3 features com maior SHAP + narrativa técnica. Override em segundos em vez de dump de features.</li>
+      <li><strong>Resposta a contestação / trilha de auditoria</strong> — se escalar pra jurídico ou Bacen, os <code>key_factors</code> estruturados servem de evidência auditável de que a decisão não foi baseada em atributo sensível.</li>
+    </ul>
+    <div class="quote">
+      "O endpoint transforma um score opaco em produto regulado. A separação entre extrator determinístico e narrador LLM é o que faz o compliance aprovar. Fiz v1 em cima da regra SQL pra sentir a ergonomia do padrão, depois refiz v2 em cima do modelo ML — e o eval confirma que ambas as versões atingem pass_rate &gt;= 0.95. Tenho URL ao vivo com os dois endpoints."
+    </div>
+  </div>
+
+  <h2>Estrutura do projeto</h2>
+  <div class="repo">credit-intelligence-pipeline/
+├── data/
+│   ├── raw/               # CSV + JSON da API simulada
+│   ├── staging/           # dados limpos, fiéis à fonte
+│   ├── marts/             # feature tables para ML e analytics
+│   └── monitoring/
+│       └── metrics_history.jsonl   # histórico de execuções
+├── models/
+│   ├── stg_credit_applications.sql
+│   ├── mart_credit_features.sql
+│   └── model.pkl                 # ✨ Fase 5 — XGBoost treinado (→ GCS)
+├── src/
+│   ├── ingestion.py              # ingestão e validação
+│   ├── transform.py              # execução de modelos SQL
+│   ├── monitor.py                # métricas e detecção de drift
+│   ├── decision_explainer_rule.py  # ✨ Bônus Fase 4 — v1 rule-based
+│   ├── decision_explainer_ml.py    # ✨ Bônus Fase 5 — v2 ML + SHAP
+│   ├── train.py                  # ✨ Fase 5 — treino + métricas
+│   └── logger.py                 # logging estruturado JSON
+├── pipeline/
+│   └── flow.py                   # orquestração Prefect
+├── api/
+│   └── main.py                   # /explain-decision/rule/{id} + /ml/{id}
+├── scripts/
+│   ├── eval_explainer_rule.py    # eval v1
+│   ├── eval_explainer_ml.py      # eval v2
+│   ├── demo_warmup.sh            # demo sem LLM
+│   ├── demo_bonus4_warmup.sh     # demo v1
+│   └── demo_bonus5_warmup.sh     # demo v2
+├── reports/                       # JSONs de eval (gitignored)
+├── tests/
+│   ├── test_pipeline.py
+│   ├── test_decision_explainer_rule.py
+│   └── test_decision_explainer_ml.py
+├── .github/workflows/
+│   └── pipeline.yml               # CI/CD
+├── Dockerfile
+├── requirements.txt
+└── README.md</div>
+
+  <h2>Pitch resumido (qualquer audiência)</h2>
+  <div class="speech">
+    "Construí um pipeline de crédito de ponta a ponta: ingestão de CSV + API simulada de bureau, validação, transformação em camadas staging e mart com DuckDB, orquestração Prefect, logging estruturado, drift detection, deploy no Cloud Run, CI/CD com GitHub Actions. Em cima disso, <strong>treinei um XGBoost</strong> pra prever default e comparei contra o baseline rule-based (AUC do modelo vs. AUC da regra SQL). O diferencial final é <strong>explicabilidade em duas versões</strong>: <code>/explain-decision/rule/{id}</code> (v1, LLM narra a regra SQL) e <code>/explain-decision/ml/{id}</code> (v2, LLM narra o modelo com SHAP). Ambos os endpoints têm guardrails contra alucinação + eval programático que gate de CI rejeita PR se pass rate cair de 95%. Tenho URL ao vivo com os dois endpoints."
+  </div>
+
+</div>
+
+<script src="shared.js"></script>
+<script>
+(function () {
+  var PHASES = [
+    { id: 'fase1', label: 'Fase 1', total: 4, challenges: ['1.1','1.2','1.3','1.4'] },
+    { id: 'fase2', label: 'Fase 2', total: 4, challenges: ['2.1','2.2','2.3','2.4'] },
+    { id: 'fase3', label: 'Fase 3', total: 3, challenges: ['3.1','3.2','3.3'] },
+    { id: 'fase4', label: 'Fase 4', total: 5, challenges: ['4.1','4.2','4.3','4.4','4.5'] },
+    { id: 'bonus4', label: 'Bônus F4', total: 4, challenges: ['B4.1','B4.2','B4.3','B4.4'] },
+    { id: 'fase5', label: 'Fase 5', total: 4, challenges: ['5.1','5.2','5.3','5.4'] },
+    { id: 'bonus5', label: 'Bônus F5', total: 4, challenges: ['B5.1','B5.2','B5.3','B5.4'] }
+  ];
+
+  document.addEventListener('DOMContentLoaded', function () {
+    var cards = document.querySelectorAll('.phase-card');
+    PHASES.forEach(function (phase, i) {
+      var card = cards[i];
+      if (!card) return;
+
+      var done = phase.challenges.filter(function (c) {
+        return localStorage.getItem('progress_' + phase.id + '_challenge_' + c) === '1';
+      }).length;
+
+      // Update status badge
+      var badge = card.querySelector('.phase-status');
+      if (badge && !badge.style.background) {
+        if (done === 0) {
+          badge.textContent = 'Não iniciada';
+          badge.className = 'phase-status status-todo';
+        } else if (done === phase.total) {
+          badge.textContent = 'Concluída ✓';
+          badge.className = 'phase-status status-done';
+          card.classList.add('phase-card-complete');
+        } else {
+          badge.textContent = 'Em andamento';
+          badge.className = 'phase-status status-wip';
+        }
+      }
+
+      // Inject progress bar before .phase-challenges
+      var pct = Math.round(done / phase.total * 100);
+      var challengesEl = card.querySelector('.phase-challenges');
+      if (challengesEl) {
+        var bar = document.createElement('div');
+        bar.className = 'phase-card-progress';
+        bar.innerHTML =
+          '<div class="phase-card-progress-label">' + done + '/' + phase.total + ' concluídos</div>' +
+          '<div class="phase-card-progress-bar"><div class="phase-card-progress-fill" style="width:' + pct + '%"></div></div>';
+        card.insertBefore(bar, challengesEl);
+      }
+    });
+  });
+}());
+</script>
+</body>
+</html>

@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fase 1 — Ingestão e Validação</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-theme">
+</head>
+<body data-page-key="recall_fase1">
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html">Hub</a>
+      <a href="fase-1.html" class="active">Fase 1</a>
+      <a href="fase-2.html">Fase 2</a>
+      <a href="fase-3.html">Fase 3</a>
+      <a href="fase-4.html">Fase 4</a>
+      <a href="bonus-fase4.html">Bônus F4 ✨</a>
+      <a href="fase-5.html">Fase 5</a>
+      <a href="bonus-fase5.html">Bônus F5 ✨</a>
+      <a href="docs.html">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()"><span id="theme-icon">🌙</span> <span id="theme-label">Dark</span></button>
+  </div>
+</div>
+<div class="container">
+
+<div class="phase-header">
+  <div class="phase-label">Fase 1 · Python puro</div>
+  <div class="phase-question">"Dados brutos de crédito chegam de dois lugares — um arquivo CSV e uma API simulada. Como você ingere, valida e normaliza tudo isso em Python puro antes de qualquer transformação?"</div>
+</div>
+
+<p><strong>Entrega:</strong> <code>src/ingestion.py</code> com as 3 funções de produção + notebook <code>01_exploration.ipynb</code> com a exploração que motivou cada decisão de código.</p>
+<p><strong>Dataset:</strong> <a href="https://www.kaggle.com/c/GiveMeSomeCredit/data" target="_blank">Give Me Some Credit — Kaggle</a> (~150k registros). Baixa o <code>cs-training.csv</code> e coloca em <code>data/raw/</code>.</p>
+
+<hr>
+
+<div class="phase-flow">
+  <div class="phase-flow-title">🔗 Como os desafios se conectam nesta fase</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">1.1 · Notebook</div>
+      <div class="flow-step-label">Exploração interativa</div>
+      <div class="flow-step-out">Você descobre os problemas reais antes de escrever produção</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">1.2 · ingestion.py</div>
+      <div class="flow-step-label">validate_dataframe()</div>
+      <div class="flow-step-out">Codifica o que aprendeu no notebook como função testável</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">1.3 · ingestion.py</div>
+      <div class="flow-step-label">fetch_from_api()</div>
+      <div class="flow-step-out">Segunda fonte: bureau de crédito simulado em JSON</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">1.4 · ingestion.py</div>
+      <div class="flow-step-label">merge_sources()</div>
+      <div class="flow-step-out">Une CSV + JSON, salva Parquet → entrada da Fase 2</div>
+    </div>
+  </div>
+</div>
+
+<div class="connect-note">
+  <strong>Notebook vs. módulo Python:</strong> o notebook é rascunho — você roda células, erra, descobre coisas livremente. O <code>ingestion.py</code> é o resultado: só o que funciona, como funções importáveis pelo Prefect na Fase 3. Lógica de produção nunca vive dentro de notebook.
+</div>
+
+<!-- ============================================================ -->
+<!--  DESAFIO 1.1                                                  -->
+<!-- ============================================================ -->
+<div class="challenge">
+  <div class="challenge-header">Desafio 1.1 — Explorar o dataset bruto <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>01_exploration.ipynb</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase1" data-challenge="1.1" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> data/raw/cs-training.csv</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> entendimento dos dados — insumo para as regras do 1.2</span>
+    </div>
+
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Conduza a EDA estruturada em <code>01_exploration.ipynb</code>. Para cada item abaixo, escreva sua hipótese em markdown <em>antes</em> do código — os números que você encontrar aqui viram as regras do 1.2 e os benchmarks do <code>/risk-summary</code> na Fase 3.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Schema:</strong> confirmar 11 colunas após <code>index_col=0</code>; verificar que <code>SeriousDlqin2yrs</code> é inteiro e <code>MonthlyIncome</code> é float64</li>
+      <li><strong>Ausência:</strong> <code>(df.isnull().sum() / len(df) * 100).round(2)</code> — confirmar que só <code>MonthlyIncome</code> (~20%) e <code>NumberOfDependents</code> (~3%) têm nulos; calcular taxa de default com <code>.mean()</code></li>
+      <li><strong>Violações de domínio:</strong> contar <code>age &lt; 18</code> ou <code>age &gt; 100</code>, <code>MonthlyIncome &lt; 0</code>, <code>NumberOfDependents &gt; 20</code> — cada condição como máscara booleana separada com <code>.sum()</code></li>
+      <li><strong>Distribuição de renda:</strong> <code>.quantile([0.25, 0.5, 0.75, 0.95, 0.99])</code> — a distância entre P75 e P99 revela a cauda que justifica mediana sobre média no 1.4</li>
+    </ul>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Carregar o CSV e inspecionar shape e tipos</span>
+        </div>
+        <div class="step-body">
+          <p>Carregue com <code>pd.read_csv('data/raw/cs-training.csv', index_col=0)</code> e chame <code>.info()</code>. O <code>index_col=0</code> descarta a coluna <code>Unnamed: 0</code> que o Kaggle inclui. <strong>Antes de rodar:</strong> quantas colunas você espera? Qual o tipo de <code>MonthlyIncome</code>?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Calcular percentual de nulos e taxa de inadimplência</span>
+        </div>
+        <div class="step-body">
+          <p>Calcule nulos com <code>(df.isnull().sum() / len(df) * 100).round(2)</code> e a taxa de default com <code>df['SeriousDlqin2yrs'].mean()</code>. Anote os dois números — eles vão validar o <code>/risk-summary</code> da Fase 3. <strong>Antes de rodar:</strong> qual coluna você acha que tem mais nulos? A taxa de default é maior ou menor que 10%?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Contar valores impossíveis e calcular percentis de renda</span>
+        </div>
+        <div class="step-body">
+          <p>Conte valores impossíveis com <code>(df['age'] &lt;= 0).sum()</code> — repita para <code>MonthlyIncome &lt; 0</code> e <code>NumberOfDependents &lt; 0</code>. Calcule os percentis 25/50/75/99 de <code>MonthlyIncome</code> com <code>.quantile([0.25, 0.5, 0.75, 0.99])</code>. <strong>Antes de rodar:</strong> se o P99 for muito maior que o P50, o que isso indica sobre a escolha de mediana vs. média no 1.4?</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Preencha os métodos pandas sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>import pandas as pd
+
+df = pd.<input class="code-blank" data-answer="read_csv" placeholder="???" size="10">('data/raw/cs-training.csv', index_col=0)
+
+# Nulos por coluna em percentual
+null_pct = (df.<input class="code-blank" data-answer="isnull" placeholder="???" size="8">().<input class="code-blank" data-answer="sum" placeholder="???" size="5">() / len(df) * 100).<input class="code-blank" data-answer="round" placeholder="???" size="7">(2)
+
+# Taxa de inadimplência
+default_rate = df['SeriousDlqin2yrs'].<input class="code-blank" data-answer="mean" placeholder="???" size="6">()
+
+# Valores impossíveis
+idades_invalidas = (df['age'] <input class="code-blank" data-answer="<= 0" placeholder="???" size="6">).<input class="code-blank" data-answer="sum" placeholder="???" size="5">()
+
+# Distribuição de renda
+print(df['MonthlyIncome'].<input class="code-blank" data-answer="quantile" placeholder="???" size="10">([0.25, 0.5, 0.75, 0.99]))</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Rode todas as células do notebook em ordem — sem erros de <code>KeyError</code> ou <code>AttributeError</code>. Depois feche o notebook e responda de cabeça: qual coluna tem mais nulos? Qual a taxa de default? Que valores são impossíveis no domínio?</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Notebook executa do início ao fim sem erro. Você consegue citar de memória: <code>MonthlyIncome</code> como coluna mais ausente (~20%), taxa de default em torno de 6.7%, e pelo menos um valor outlier claro (ex: <code>NumberOfDependents = 20</code>). Se precisar reabrir o notebook para responder, a exploração ainda não fixou — releia a seção relevante.</p>
+
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv('data/raw/cs-training.csv', index_col=0)
+print("Shape:", df.shape)  # (150000, 11)
+null_pct = (df.isnull().sum() / len(df) * 100).round(2)
+print("\nNulos (%):\n", null_pct[null_pct > 0])
+
+print("\nTaxa de default:", df['SeriousDlqin2yrs'].mean().round(4))
+
+# Violações de domínio
+print("\nIdades inválidas (<18 ou >100):", ((df['age'] < 18) | (df['age'] > 100)).sum())
+print("Renda negativa:", (df['MonthlyIncome'] < 0).sum())
+print("Dependentes > 20:", (df['NumberOfDependents'] > 20).sum())
+
+# Distribuição de renda — P99 vs P75 revela a cauda
+print("\nRenda — percentis:")
+print(df['MonthlyIncome'].quantile([0.25, 0.5, 0.75, 0.95, 0.99]))</code></pre>
+      <p style="font-size:0.83rem;color:var(--muted);margin-top:0.5rem;">Esperado: ~20% nulos em <code>MonthlyIncome</code>, ~3% em <code>NumberOfDependents</code>, default ~6.7%, pelo menos 1 idade inválida. O P99 de renda estará muito acima do P50 — isso justifica mediana na imputação do 1.4.</p>
+    </details>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  DESAFIO 1.2                                                  -->
+<!-- ============================================================ -->
+<div class="challenge">
+  <div class="challenge-header">Desafio 1.2 — Função de validação <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/ingestion.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase1" data-challenge="1.2" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> DataFrame pandas</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> dict com relatório de qualidade + is_valid</span>
+      <span class="io-badge">🔗 <strong>Regras vêm de:</strong> 1.1</span>
+    </div>
+
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete <code>validate_dataframe(df)</code> em <code>src/ingestion.py</code> — retorna um dict com três chaves: <code>missing_pct</code>, <code>violations</code>, e <code>is_valid</code>. Os thresholds derivam diretamente do que você mediu no 1.1, não são arbitrários.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Ausência:</strong> <code>(df.isnull().sum() / len(df) * 100).round(2)</code> filtrado onde maior que zero — entra como <code>missing_pct</code> (dict, não Series)</li>
+      <li><strong>Violações de domínio</strong> (4 regras com operador bitwise <code>|</code>): <code>"age_invalid"</code> = <code>(df['age'] &lt; 18) | (df['age'] &gt; 100)</code>, <code>"income_negative"</code> = <code>df['MonthlyIncome'] &lt; 0</code>, <code>"debt_ratio_high"</code> = <code>df['DebtRatio'] &gt; 100</code>, <code>"utilization_high"</code> = <code>df['RevolvingUtilizationOfUnsecuredLines'] &gt; 1.5</code> — cada um com <code>.sum()</code></li>
+      <li><strong>Flag <code>is_valid</code>:</strong> <code>max(missing_pct.values()) &lt; 30 and sum(violations.values()) == 0</code> — expressão inline; qualquer violação torna o dataset inválido</li>
+    </ul>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Calcular percentual de nulos por coluna</span>
+        </div>
+        <div class="step-body">
+          <p>Calcule o percentual de nulos com <code>(df.isnull().sum() / len(df) * 100).round(2)</code> e filtre só as colunas com nulos: <code>null_pct[null_pct &gt; 0].to_dict()</code>. Guarde o resultado — ele entra diretamente no dict de retorno. <strong>Antes de escrever:</strong> por que retornar um dict em vez da Series pandas?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Verificar regras de negócio e contar violações</span>
+        </div>
+        <div class="step-body">
+          <p>Conte idades inválidas com <code>bad = ((df['age'] &lt; 18) | (df['age'] &gt; 100)).sum()</code>. Repita para <code>MonthlyIncome &lt; 0</code>. Adicione ao dict <code>violations</code> só quando <code>bad &gt; 0</code> — use <code>if 'age' in df.columns</code> antes de acessar cada coluna. <strong>Antes de escrever:</strong> por que <code>|</code> e não <code>or</code> para combinar duas condições em uma Series?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Montar o dict de retorno com is_valid</span>
+        </div>
+        <div class="step-body">
+          <p>Monte o return com <code>null_percentage</code>, <code>business_rule_violations</code>, e <code>is_valid</code> calculado inline: <code>len(violations) == 0 and all(v &lt; 5.0 for v in null_pct.values)</code>. <strong>Antes de escrever:</strong> <code>MonthlyIncome</code> tem ~20% de nulos — com threshold de 5%, <code>is_valid</code> será sempre <code>False</code>. Isso é um bug ou o comportamento correto?</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Preencha as condições e estrutura sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>def validate_dataframe(df):
+    null_pct = (df.isnull().sum() / len(df) * 100).round(2)
+    missing_pct = null_pct[null_pct > 0].to_dict()
+    violations = {}
+
+    # age fora de [18, 100]
+    bad = ((df['age'] <input class="code-blank" data-answer="< 18" placeholder="???" size="6">) | (df['age'] <input class="code-blank" data-answer="> 100" placeholder="???" size="7">)).<input class="code-blank" data-answer="sum" placeholder="???" size="5">()
+    if bad: violations[<input class="code-blank" data-answer="'age_invalid'" placeholder="???" size="14">] = int(bad)
+
+    # MonthlyIncome negativa
+    bad = (df['MonthlyIncome'] <input class="code-blank" data-answer="< 0" placeholder="???" size="5">).sum()
+    if bad: violations[<input class="code-blank" data-answer="'income_negative'" placeholder="???" size="18">] = int(bad)
+
+    # DebtRatio acima de 100
+    bad = (df['DebtRatio'] <input class="code-blank" data-answer="> 100" placeholder="???" size="7">).sum()
+    if bad: violations[<input class="code-blank" data-answer="'debt_ratio_high'" placeholder="???" size="18">] = int(bad)
+
+    # RevolvingUtilization acima de 1.5
+    bad = (df['RevolvingUtilizationOfUnsecuredLines'] <input class="code-blank" data-answer="> 1.5" placeholder="???" size="7">).sum()
+    if bad: violations[<input class="code-blank" data-answer="'utilization_high'" placeholder="???" size="19">] = int(bad)
+
+    return {
+        'missing_pct': missing_pct,
+        'violations': violations,
+        'is_valid': max(missing_pct.values(), default=0) <input class="code-blank" data-answer="< 30" placeholder="???" size="6"> and <input class="code-blank" data-answer="sum(violations.values())" placeholder="???" size="24"> == 0
+    }</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <div class="connect-note">
+      <strong>Por que mover para .py?</strong> O Prefect na Fase 3 vai fazer <code>from src.ingestion import validate_dataframe</code>. Se a lógica estiver num notebook, não tem como importar. Tudo que precisa rodar em produção vive em <code>.py</code>.
+    </div>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>No terminal: <code>python -c "from src.ingestion import validate_dataframe; import pandas as pd; df = pd.read_csv('data/raw/cs-training.csv', index_col=0); print(validate_dataframe(df))"</code>. Confirme que importa sem erros e que o dicionário tem as chaves esperadas.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Um dicionário com três chaves: <code>missing_pct</code>, <code>invalid_ranges</code>, e <code>duplicate_count</code>. Os valores de <code>missing_pct</code> batem com o que você calculou no notebook 1.1. Rodar duas vezes com o mesmo DataFrame produz exatamente o mesmo resultado.</p>
+
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">def validate_dataframe(df):
+    null_pct = (df.isnull().sum() / len(df) * 100).round(2)
+    missing_pct = null_pct[null_pct > 0].to_dict()
+    violations = {}
+
+    bad = ((df['age'] < 18) | (df['age'] > 100)).sum()
+    if bad: violations['age_invalid'] = int(bad)
+
+    bad = (df['MonthlyIncome'] < 0).sum()
+    if bad: violations['income_negative'] = int(bad)
+
+    bad = (df['DebtRatio'] > 100).sum()
+    if bad: violations['debt_ratio_high'] = int(bad)
+
+    bad = (df['RevolvingUtilizationOfUnsecuredLines'] > 1.5).sum()
+    if bad: violations['utilization_high'] = int(bad)
+
+    return {
+        'missing_pct': missing_pct,
+        'violations': violations,
+        'is_valid': max(missing_pct.values(), default=0) < 30 and sum(violations.values()) == 0
+    }</code></pre>
+    </details>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  DESAFIO 1.3                                                  -->
+<!-- ============================================================ -->
+<div class="challenge">
+  <div class="challenge-header">Desafio 1.3 — Simular API de bureau de crédito <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/ingestion.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase1" data-challenge="1.3" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> n_records (int)</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> data/raw/bureau_api.json</span>
+      <span class="io-badge">🔗 <strong>Alimenta:</strong> merge do 1.4</span>
+    </div>
+
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete <code>fetch_from_api(n)</code> em <code>src/ingestion.py</code> — simula um payload de bureau de crédito, retorna lista de <code>n</code> dicts com schema fixo. <code>random.seed(42)</code> garante que o mesmo <code>n</code> sempre produza o mesmo dataset.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Schema</strong> (documentar em comentário antes do loop): <code>applicant_id</code> str <code>APP-000001</code> (zero-pad 6 dígitos), <code>cpf_hash</code> str sha256[:16] (nunca CPF em claro), <code>bureau_score</code> int [300, 900], <code>active_debts</code> int [0, 15], <code>requested_at</code> ISO nos últimos 365 dias</li>
+      <li><strong>Construção de cada campo:</strong> <code>f"APP-{i+1:06d}"</code>, <code>hashlib.sha256(fake.cpf().encode()).hexdigest()[:16]</code>, <code>(datetime.now() - timedelta(days=random.randint(0, 365))).isoformat()</code></li>
+      <li><strong>Persistência:</strong> <code>json.dump(records, f)</code> em <code>data/raw/bureau_api.json</code> <em>antes</em> de retornar — o <code>merge_sources()</code> lê pelo caminho, não pelo retorno</li>
+    </ul>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 2</span>
+          <span class="step-title">Definir o schema antes de escrever código</span>
+        </div>
+        <div class="step-body">
+          <p>Defina o schema em um comentário: <code>applicant_id</code> (str), <code>cpf_hash</code> (str), <code>bureau_score</code> (int 0–1000), <code>active_debts</code> (int), <code>requested_at</code> (str ISO). Use <code>f"APP-{i+1:06d}"</code> para o ID e <code>hashlib.sha256(cpf.encode()).hexdigest()[:16]</code> para o hash. <strong>Antes de escrever:</strong> por que não armazenar o CPF diretamente?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 2</span>
+          <span class="step-title">Gerar os registros e persistir em JSON</span>
+        </div>
+        <div class="step-body">
+          <p>Itere <code>range(n_records)</code> montando cada dict com <code>fake.cpf()</code>, <code>random.randint()</code> para scores e débitos, e <code>datetime.now() - timedelta(minutes=random.randint(0, 10000))</code> para o timestamp. Crie o diretório com <code>Path('data/raw').mkdir(parents=True, exist_ok=True)</code> antes do <code>open</code> e serialize com <code>json.dump(records, f)</code>. <strong>Antes de rodar:</strong> o que acontece se você chamar <code>open(..., 'w')</code> num diretório que ainda não existe?</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Preencha os detalhes de geração e persistência</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>import json, random, <input class="code-blank" data-answer="hashlib" placeholder="???" size="9">
+from datetime import datetime, timedelta
+from faker import Faker
+from pathlib import Path
+
+fake = Faker('<input class="code-blank" data-answer="pt_BR" placeholder="???" size="7">')
+
+def fetch_from_api(n_records):
+    random.<input class="code-blank" data-answer="seed" placeholder="???" size="6">(42)  # reprodutibilidade
+    base = datetime.now()
+    records = []
+    for i in range(n_records):
+        cpf = fake.cpf().replace('.','').replace('-','')
+        records.append({
+            "applicant_id": f"APP-{i+1:<input class="code-blank" data-answer="06d" placeholder="???" size="5">}",
+            "cpf_hash": hashlib.<input class="code-blank" data-answer="sha256" placeholder="???" size="8">(cpf.encode()).hexdigest()[:<input class="code-blank" data-answer="16" placeholder="??" size="4">],
+            "bureau_score": random.randint(<input class="code-blank" data-answer="300" placeholder="???" size="5">, <input class="code-blank" data-answer="900" placeholder="???" size="5">),
+            "active_debts": random.randint(0, 15),
+            "requested_at": (base - timedelta(days=random.randint(0, <input class="code-blank" data-answer="365" placeholder="???" size="5">))).isoformat()
+        })
+    Path('data/raw').mkdir(parents=True, exist_ok=True)
+    with open('data/raw/bureau_api.json', '<input class="code-blank" data-answer="w" placeholder="?" size="3">') as f:
+        json.<input class="code-blank" data-answer="dump" placeholder="???" size="6">(records, f)
+    return records</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Execute: <code>python -c "from src.ingestion import fetch_from_api; import json; data = fetch_from_api(5); print(data[0].keys()); print(json.dumps(data[0], indent=2))"</code>. Depois verifique a consistência das chaves: <code>python -c "from src.ingestion import fetch_from_api; d = fetch_from_api(10); print(all(d[0].keys() == r.keys() for r in d))"</code>.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Lista de dicionários com chaves idênticas em todos os registros — a verificação de consistência retorna <code>True</code>. Nenhum campo é <code>None</code>. O <code>customer_id</code> tem padding de zeros (ex: <code>C00001</code>). Rodar com a mesma semente produz exatamente os mesmos dados.</p>
+
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import json, random, hashlib
+from datetime import datetime, timedelta
+from faker import Faker
+from pathlib import Path
+
+fake = Faker('pt_BR')
+
+def fetch_from_api(n_records):
+    random.seed(42)  # mesmo n → mesmo dataset sempre
+    base = datetime.now()
+    records = []
+    for i in range(n_records):
+        cpf = fake.cpf().replace('.','').replace('-','')
+        records.append({
+            "applicant_id": f"APP-{i+1:06d}",
+            "cpf_hash": hashlib.sha256(cpf.encode()).hexdigest()[:16],
+            "bureau_score": random.randint(300, 900),   # range realista de score
+            "active_debts": random.randint(0, 15),
+            "requested_at": (base - timedelta(days=random.randint(0, 365))).isoformat()
+        })
+    Path('data/raw').mkdir(parents=True, exist_ok=True)
+    with open('data/raw/bureau_api.json', 'w') as f:
+        json.dump(records, f)
+    return records</code></pre>
+    </details>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!--  DESAFIO 1.4                                                  -->
+<!-- ============================================================ -->
+<div class="challenge">
+  <div class="challenge-header">Desafio 1.4 — Unificar fontes e salvar Parquet <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/ingestion.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase1" data-challenge="1.4" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> data/raw/cs-training.csv + data/raw/bureau_api.json</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> data/staging/credit_applications.parquet</span>
+      <span class="io-badge">🔗 <strong>Alimenta:</strong> DuckDB na Fase 2</span>
+    </div>
+
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete <code>merge_sources(csv_path, json_path)</code> em <code>src/ingestion.py</code> — consolida o CSV histórico com o JSON de bureau em um Parquet único. A ordem das três etapas é invariante: flags de ausência <em>antes</em> da imputação, senão a informação se perde para sempre.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Flags de ausência</strong> (primeiro, antes de qualquer <code>.fillna()</code>): <code>income_missing = df['MonthlyIncome'].isnull().astype(int)</code> e <code>dependents_missing = df['NumberOfDependents'].isnull().astype(int)</code> — após imputação, <code>.isnull()</code> retorna tudo False</li>
+      <li><strong>Imputação:</strong> <code>MonthlyIncome</code> com <code>.fillna(median())</code> — não média; o P99 do 1.1 está muito acima do P50, a média seria puxada pelos outliers. <code>NumberOfDependents</code> com <code>.fillna(0)</code> — zero é a leitura semântica correta para ausente aqui</li>
+      <li><strong>Validação pós-merge:</strong> confirmar zero nulos em <code>SeriousDlqin2yrs</code>, <code>age</code>, <code>DebtRatio</code>, <code>RevolvingUtilizationOfUnsecuredLines</code> — essas colunas não devem ter nulos em nenhum momento</li>
+      <li><strong>Serialização:</strong> <code>df.to_parquet(path, index=False)</code> — <code>index=False</code> evita coluna extra que quebraria o schema da staging SQL na Fase 2</li>
+    </ul>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Criar flags de ausência antes de qualquer imputação</span>
+        </div>
+        <div class="step-body">
+          <p>Crie as colunas <code>income_missing</code> e <code>dependents_missing</code> com <code>df['MonthlyIncome'].isnull().astype(int)</code> antes de qualquer <code>.fillna()</code>. <code>.astype(int)</code> converte True→1, False→0. <strong>Antes de escrever:</strong> o que <code>.isnull()</code> retorna numa coluna depois que você aplicou <code>.fillna()</code> nela?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Imputar nulos com estratégia justificada</span>
+        </div>
+        <div class="step-body">
+          <p>Impute <code>MonthlyIncome</code> com <code>.fillna(df['MonthlyIncome'].median())</code> e <code>NumberOfDependents</code> com <code>.fillna(0)</code>. Atribua o resultado de volta à coluna — <code>.fillna()</code> retorna uma nova Series sem modificar o DataFrame. <strong>Antes de escrever:</strong> por que mediana para renda e 0 para dependentes — e não o contrário?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Salvar como Parquet</span>
+        </div>
+        <div class="step-body">
+          <p>Crie o diretório com <code>Path('data/staging').mkdir(parents=True, exist_ok=True)</code> e salve com <code>df.to_parquet('data/staging/credit_applications.parquet', index=False)</code>. Instale <code>pyarrow</code> se ainda não tiver. <strong>Antes de rodar:</strong> o que <code>index=False</code> elimina do arquivo — e por que isso importa para o DuckDB na Fase 2?</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Preencha a estratégia de tratamento de nulos e persistência</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>import pandas as pd
+from pathlib import Path
+
+def merge_sources(csv_path, json_path):
+    df = pd.read_csv(csv_path, index_col=0)
+
+    # Cria flags ANTES de imputar
+    df['income_missing'] = df['MonthlyIncome'].<input class="code-blank" data-answer="isnull" placeholder="???" size="8">().astype(<input class="code-blank" data-answer="int" placeholder="???" size="5">)
+    df['dependents_missing'] = df['NumberOfDependents'].isnull().astype(int)
+
+    # Imputa com mediana (robusta a outliers financeiros extremos)
+    df['MonthlyIncome'] = df['MonthlyIncome'].<input class="code-blank" data-answer="fillna" placeholder="???" size="8">(df['MonthlyIncome'].<input class="code-blank" data-answer="median" placeholder="???" size="8">())
+    df['NumberOfDependents'] = df['NumberOfDependents'].fillna(<input class="code-blank" data-answer="0" placeholder="?" size="3">)
+
+    # Salva como Parquet
+    Path('data/staging').mkdir(parents=True, <input class="code-blank" data-answer="exist_ok=True" placeholder="???" size="14">)
+    df.to_parquet('data/staging/credit_applications.parquet', <input class="code-blank" data-answer="index=False" placeholder="???" size="12">)
+    print(f"Staging: {len(df)} registros")
+    return df</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <div class="connect-note">
+      <strong>Por que Parquet e não CSV?</strong> DuckDB lê Parquet com <code>SELECT * FROM 'arquivo.parquet'</code> — sem importar, sem setup. Parquet é colunar e comprimido: para 150k linhas é imperceptível, mas em produção com 150 milhões de linhas a diferença é ordens de magnitude.
+    </div>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Execute: <code>python -c "from src.ingestion import merge_sources; df = merge_sources('data/raw/cs-training.csv', 'data/raw/bureau_api.json'); print(df.shape, df.isnull().sum()[df.isnull().sum() > 0])"</code>. Depois confirme o Parquet: <code>python -c "import pandas as pd; pd.read_parquet('data/staging/credit_applications.parquet').info()"</code>.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Arquivo <code>data/staging/credit_applications.parquet</code> criado. Colunas <code>income_missing</code> e <code>dependents_missing</code> presentes com valores 0 ou 1 (inteiro). <code>df.isnull().sum()</code> retorna zero para as colunas críticas — a imputação eliminou todos os nulos. <code>.info()</code> não mostra nenhuma coluna como <code>object</code> onde deveria ser numérico.</p>
+
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import pandas as pd
+from pathlib import Path
+
+def merge_sources(csv_path, json_path):
+    df = pd.read_csv(csv_path, index_col=0)
+    df['income_missing'] = df['MonthlyIncome'].isnull().astype(int)
+    df['dependents_missing'] = df['NumberOfDependents'].isnull().astype(int)
+    df['MonthlyIncome'] = df['MonthlyIncome'].fillna(df['MonthlyIncome'].median())
+    df['NumberOfDependents'] = df['NumberOfDependents'].fillna(0)
+    Path('data/staging').mkdir(parents=True, exist_ok=True)
+    df.to_parquet('data/staging/credit_applications.parquet', index=False)
+    print(f"Staging: {len(df)} registros → data/staging/credit_applications.parquet")
+    return df</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="variations">
+  <div class="variations-title">⚡ Variações deliberadas — quebre o código de propósito</div>
+  <ul class="checklist">
+    <li>Remove <code>income_missing</code> antes de salvar. O que muda no shape do Parquet? O que você perde como feature potencial?</li>
+    <li>Troca mediana por média em <code>MonthlyIncome</code>. O valor muda muito? Por que outliers financeiros tornam a média enganosa?</li>
+    <li>Salva como CSV (<code>.to_csv()</code>) em vez de Parquet. Compara o tamanho com <code>ls -lh data/staging/</code>.</li>
+  </ul>
+</div>
+
+<div class="blank-test">
+  <strong>Teste final:</strong> fecha tudo. Novo arquivo Python. Carrega o CSV, conta nulos por coluna, salva como Parquet. Sem consultar. Onde você travou = onde o aprendizado ainda não consolidou.
+</div>
+
+<div class="page-nav">
+  <a class="btn-nav disabled">← Anterior</a>
+  <a class="btn-nav" href="fase-2.html">Fase 2: SQL + Modelagem →</a>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="shared.js"></script>
+
+</body>
+</html>

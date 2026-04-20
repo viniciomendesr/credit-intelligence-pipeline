@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fase 4 — Observabilidade + Deploy GCP</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-theme">
+</head>
+<body data-page-key="recall_fase4">
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html">Hub</a>
+      <a href="fase-1.html">Fase 1</a>
+      <a href="fase-2.html">Fase 2</a>
+      <a href="fase-3.html">Fase 3</a>
+      <a href="fase-4.html" class="active">Fase 4</a>
+      <a href="bonus-fase4.html">Bônus F4 ✨</a>
+      <a href="fase-5.html">Fase 5</a>
+      <a href="bonus-fase5.html">Bônus F5 ✨</a>
+      <a href="docs.html">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()"><span id="theme-icon">🌙</span> <span id="theme-label">Dark</span></button>
+  </div>
+</div>
+<div class="container">
+
+<div class="phase-header">
+  <div class="phase-label">Fase 4 · Observabilidade + Deploy em GCP</div>
+  <div class="phase-question">"Como você sabe que seu pipeline de ontem produziu dados melhores ou piores que o de anteontem? E como coloca isso em produção de forma que outras pessoas acessem — não só você na sua máquina?"</div>
+</div>
+
+<p><strong>Entrega:</strong> logging estruturado JSON + detecção de drift entre execuções + API rodando no Cloud Run com URL pública + CI/CD no GitHub Actions.</p>
+<p><strong>Pré-requisito:</strong> Dockerfile funcionando localmente (Fase 3), conta GCP criada (free tier funciona), repositório no GitHub.</p>
+
+<hr>
+
+<div class="phase-flow">
+  <div class="phase-flow-title">🔗 Como os desafios se conectam nesta fase</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">4.1 · src/logger.py</div>
+      <div class="flow-step-label">Logging JSON</div>
+      <div class="flow-step-out">Substitui print() por logs estruturados que o Cloud Logging do GCP entende nativamente</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">4.2 · src/monitor.py</div>
+      <div class="flow-step-label">Drift Detection</div>
+      <div class="flow-step-out">Persiste métricas por execução e compara — alimenta o agente LLM do Bônus</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">4.3 · gcloud</div>
+      <div class="flow-step-label">Cloud Run</div>
+      <div class="flow-step-out">Publica a imagem Docker como URL pública — a mesma que você menciona na entrevista</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">4.4 · .github/</div>
+      <div class="flow-step-label">GitHub Actions</div>
+      <div class="flow-step-out">Automatiza testes + deploy a cada push no main — sem deploy manual nunca mais</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">4.5 · scripts/demo_warmup.sh</div>
+      <div class="flow-step-label">Demo pronto ao vivo</div>
+      <div class="flow-step-out">Runbook + script de warm-up que deixa o sistema 100% demonstrável em qualquer cenário — validação pós-deploy, showcase pra mentor/colaborador, portfólio, entrevista. Sem cold start, sem erro, sem caçar id no meio da demo</div>
+    </div>
+  </div>
+</div>
+
+<div class="connect-note">
+  <strong>Por que esta fase existe?</strong> Sem ela, o pipeline é um script que roda na sua máquina e produz uma pasta de arquivos. Com ela, você tem um serviço observável, com histórico de qualidade de dados, acessível publicamente, e com deploy automatizado. Essa é a diferença entre um projeto de portfólio e um sistema operacional.
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 4.1 — Logging estruturado com JSON <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/logger.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase4" data-challenge="4.1" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> nome do módulo + run_id (str)</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> logger configurado para emitir JSON por linha</span>
+      <span class="io-badge">🔗 <strong>Usado por:</strong> pipeline/flow.py — substitui todos os print()</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete <code>get_logger(name, run_id=None)</code> em <code>src/logger.py</code> — retorna um logger que emite JSON por linha, pronto para ingestão pelo Cloud Logging do GCP.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Formatter:</strong> <code>JsonFormatter(fmt='%(asctime)s %(levelname)s %(message)s', rename_fields={'asctime': 'timestamp', 'levelname': 'level', 'message': 'event'})</code> — esses nomes são o que o Cloud Logging usa para indexação estruturada</li>
+      <li><strong>Guard de handlers:</strong> <code>if not logger.handlers:</code> antes de adicionar o <code>StreamHandler</code> — sem isso, cada chamada de <code>get_logger("pipeline")</code> empilha um handler novo e cada evento é impresso N vezes</li>
+      <li><strong>Em <code>flow.py</code>:</strong> <code>RUN_ID = str(uuid.uuid4())[:8]</code> gerado uma vez antes das tasks; passado em cada log via <code>extra={"run_id": RUN_ID, "records": N}</code> para rastreabilidade por execução</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que JSON e não texto?</strong> Logs em texto são legíveis para humanos. Logs em JSON são legíveis para máquinas — e é o que o Cloud Logging do GCP espera para indexar e filtrar. Com um <code>run_id</code> único por execução (um <code>uuid4()</code>), você consegue filtrar todos os logs de uma execução específica com uma query simples.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Configurar o formatter JSON com python-json-logger</span>
+        </div>
+        <div class="step-body">
+          <p>Crie o handler com <code>handler = logging.StreamHandler()</code> e o formatter com <code>jsonlogger.JsonFormatter(fmt='%(asctime)s %(name)s %(levelname)s %(message)s')</code>. Use <code>rename_fields={'asctime': 'timestamp', 'levelname': 'level', 'message': 'event'}</code> para os nomes que o Cloud Logging do GCP espera. <strong>Antes de escrever:</strong> por que JSON em vez de texto? (logs em JSON são indexáveis e filtráveis por campo — texto livre não é)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Montar a função get_logger com guard de handlers</span>
+        </div>
+        <div class="step-body">
+          <p>Envolva a criação do handler com <code>if not logger.handlers:</code> — sem esse guard, cada chamada de <code>get_logger()</code> adiciona um handler novo e cada evento é logado duplicado. Defina <code>logger.setLevel(logging.INFO)</code> antes de adicionar o handler. <strong>Antes de escrever:</strong> o que acontece sem o guard se <code>get_logger("pipeline")</code> for chamado em 3 tasks diferentes?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Usar run_id em cada chamada de log</span>
+        </div>
+        <div class="step-body">
+          <p>Gere o <code>run_id</code> no início do flow com <code>RUN_ID = str(uuid.uuid4())[:8]</code> e passe para cada chamada de log: <code>log.info("CSV ingerido", extra={"run_id": RUN_ID, "records": len(df)})</code>. Com o <code>run_id</code>, você filtra todos os logs de uma execução específica no Cloud Logging com uma query simples. <strong>Antes de rodar:</strong> por que <code>[:8]</code>? UUIDs completos são longos demais para identificadores visuais em logs.</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete o logger JSON sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>import logging, uuid
+from pythonjsonlogger import <input class="code-blank" data-answer="jsonlogger" placeholder="???" size="12">
+
+def get_logger(name: str, run_id: str = None) -> logging.Logger:
+    logger = logging.<input class="code-blank" data-answer="getLogger" placeholder="???" size="11">(name)
+    logger.setLevel(logging.INFO)
+    if not logger.<input class="code-blank" data-answer="handlers" placeholder="???" size="10">:
+        handler = logging.<input class="code-blank" data-answer="StreamHandler" placeholder="???" size="15">()
+        formatter = jsonlogger.JsonFormatter(
+            fmt='%(asctime)s %(levelname)s %(message)s',
+            rename_fields={
+                'asctime': '<input class="code-blank" data-answer="timestamp" placeholder="???" size="11">',
+                'levelname': 'level',
+                'message': '<input class="code-blank" data-answer="event" placeholder="???" size="7">'
+            }
+        )
+        handler.setFormatter(formatter)
+        logger.<input class="code-blank" data-answer="addHandler" placeholder="???" size="11">(handler)
+    return logger
+
+# Em flow.py:
+RUN_ID = str(uuid.<input class="code-blank" data-answer="uuid4" placeholder="???" size="7">())[:8]
+log = get_logger("pipeline", RUN_ID)
+log.info("CSV ingerido", extra={"run_id": RUN_ID, "records": 150000})</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Rode o flow piped para o parser JSON: <code>python pipeline/flow.py | python -m json.tool</code>. Depois filtre por <code>run_id</code>: <code>python pipeline/flow.py | python -c "import sys,json; [print(json.loads(l)['run_id']) for l in sys.stdin]"</code>. Rode duas vezes e confirme que o <code>run_id</code> muda entre execuções.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Nenhum <code>JSONDecodeError</code> — cada linha é JSON válido. Cada objeto tem os campos <code>timestamp</code>, <code>level</code>, <code>event</code>, e <code>run_id</code>. O <code>run_id</code> é diferente entre as duas execuções — sem isso, filtrar logs de uma run específica no Cloud Logging é impossível.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import logging, uuid
+from pythonjsonlogger import jsonlogger
+
+def get_logger(name: str, run_id: str = None) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        formatter = jsonlogger.JsonFormatter(
+            fmt='%(asctime)s %(name)s %(levelname)s %(message)s',
+            rename_fields={
+                'asctime': 'timestamp',
+                'levelname': 'level',
+                'message': 'event'
+            }
+        )
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+    return logger
+
+# Como usar em flow.py:
+# RUN_ID = str(uuid.uuid4())[:8]
+# log = get_logger("pipeline", RUN_ID)
+# log.info("CSV ingerido", extra={"run_id": RUN_ID, "records": len(df)})</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 4.2 — Monitoramento e detecção de drift <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/monitor.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase4" data-challenge="4.2" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> mart_credit_features.parquet + run_id</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> data/monitoring/metrics_history.jsonl (append por execução)</span>
+      <span class="io-badge">🔗 <strong>Lido pelo:</strong> agente LLM do Bônus</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete em <code>src/monitor.py</code> três funções de observabilidade. Cada execução do pipeline adiciona uma linha ao arquivo JSONL — nunca sobrescreve.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong><code>collect_metrics(df, run_id)</code>:</strong> retorna dict com <code>run_id</code>, <code>timestamp</code> (ISO), <code>total_records</code>, <code>default_rate_pct</code> (mean × 100, round <strong>4</strong> — quatro casas para detectar variações pequenas), <code>risk_tier_dist</code> (value_counts normalize, round 2, to_dict), <code>median_income</code> (round 2)</li>
+      <li><strong><code>save_metrics(metrics, path)</code>:</strong> <code>open(path, 'a')</code> + <code>json.dumps(metrics) + '\n'</code> — modo <code>'w'</code> apagaria o histórico e o drift nunca seria detectado</li>
+      <li><strong><code>detect_drift(path)</code>:</strong> compara <code>lines[-2]</code> e <code>lines[-1]</code> após <code>json.loads()</code>; retorna <code>{"drift_detected": delta &gt; 10.0, "delta_pct": round(delta, 4)}</code> — threshold de 10 pontos percentuais em <code>default_rate_pct</code></li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que JSONL e não um banco?</strong> JSONL (JSON Lines) é append-only — cada execução adiciona uma linha. É trivial de ler com Python, funciona sem setup, e é exatamente o que o agente LLM do módulo Bônus vai consumir para gerar análise em linguagem natural. Para escala maior você migraria para BigQuery, mas JSONL é o padrão correto para começar.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Coletar métricas do DataFrame</span>
+        </div>
+        <div class="step-body">
+          <p>Construa o dict de métricas com <code>df['defaulted'].mean() * 100</code> para default rate e <code>df['risk_tier'].value_counts(normalize=True).mul(100).round(2).to_dict()</code> para distribuição. Inclua <code>run_id</code> e <code>datetime.now().isoformat()</code> para rastrear quando cada execução rodou. <strong>Antes de escrever:</strong> por que <code>round(..., 4)</code> e não 2 para o default rate? (4 casas permitem detectar variações menores — relevante para drift)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Persistir em JSONL com modo append</span>
+        </div>
+        <div class="step-body">
+          <p>Salve com <code>open(path, 'a')</code> — modo append adiciona uma linha por execução sem sobrescrever. Escreva com <code>f.write(json.dumps(metrics) + '\n')</code>. Crie o diretório antes com <code>Path(path).parent.mkdir(parents=True, exist_ok=True)</code>. <strong>Antes de escrever:</strong> o que acontece se usar <code>open(path, 'w')</code> por engano? (o histórico inteiro é apagado a cada execução — o drift nunca seria detectado)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Detectar drift comparando as duas últimas execuções</span>
+        </div>
+        <div class="step-body">
+          <p>Leia o arquivo, separe por <code>'\n'</code>, e compare <code>lines[-2]</code> com <code>lines[-1]</code> após <code>json.loads()</code>. Calcule <code>delta = abs(curr['default_rate_pct'] - prev['default_rate_pct'])</code> e retorne <code>{"drift_detected": delta > threshold, "delta_pct": delta}</code>. <strong>Antes de testar:</strong> edite manualmente a segunda linha do JSONL para ter <code>default_rate_pct</code> muito diferente e confirme que o drift é detectado.</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete o monitor de drift sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>import json
+from datetime import datetime
+from pathlib import Path
+import pandas as pd
+
+def collect_metrics(df: pd.DataFrame, run_id: str) -> dict:
+    return {
+        "run_id": run_id,
+        "timestamp": datetime.<input class="code-blank" data-answer="now" placeholder="???" size="5">().<input class="code-blank" data-answer="isoformat" placeholder="???" size="11">(),
+        "default_rate_pct": round(df['defaulted'].<input class="code-blank" data-answer="mean" placeholder="???" size="6">() * 100, 4),
+        "risk_tier_dist": df['risk_tier'].value_counts(
+            normalize=True).mul(100).round(2).<input class="code-blank" data-answer="to_dict" placeholder="???" size="9">()
+    }
+
+def save_metrics(metrics: dict, path: str):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, '<input class="code-blank" data-answer="a" placeholder="???" size="3">') as f:  # append, não 'w'
+        f.write(json.<input class="code-blank" data-answer="dumps" placeholder="???" size="6">(metrics) + '\n')
+
+def detect_drift(path: str) -> dict:
+    lines = Path(path).read_text().strip().split('\n')
+    if len(lines) < 2:
+        return {"drift_detected": False}
+    prev = json.loads(lines[<input class="code-blank" data-answer="-2" placeholder="???" size="4">])
+    curr = json.loads(lines[<input class="code-blank" data-answer="-1" placeholder="???" size="4">])
+    delta = abs(curr['default_rate_pct'] - prev['default_rate_pct'])
+    return {
+        "drift_detected": delta > <input class="code-blank" data-answer="10.0" placeholder="???" size="6">,
+        "delta_pct": round(delta, 4)
+    }</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Rode o flow duas vezes. Verifique o arquivo: <code>wc -l data/monitoring/metrics_history.jsonl</code> (deve ter 2 linhas). Rode <code>python -c "from src.monitor import detect_drift; print(detect_drift('data/monitoring/metrics_history.jsonl'))"</code>. Para testar a detecção: edite manualmente a segunda linha do JSONL e altere <code>default_rate_pct</code> para um valor 30% maior — rode <code>detect_drift()</code> novamente.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Arquivo JSONL com exatamente 2 linhas após 2 execuções (modo append funcionando). Em condições normais: <code>{"drift_detected": False, "delta_pct": ...}</code>. Após edição manual com divergência grande: <code>{"drift_detected": True, "delta_pct": ...}</code>. Se o arquivo tiver 1 linha após 2 execuções, você usou modo <code>'w'</code> em vez de <code>'a'</code>.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import json
+from datetime import datetime
+from pathlib import Path
+import pandas as pd
+
+def collect_metrics(df: pd.DataFrame, run_id: str) -> dict:
+    return {
+        "run_id": run_id,
+        "timestamp": datetime.now().isoformat(),
+        "total_records": len(df),
+        "default_rate_pct": round(df['defaulted'].mean() * 100, 4),
+        "risk_tier_dist": df['risk_tier'].value_counts(normalize=True).mul(100).round(2).to_dict(),
+        "median_income": round(df['monthly_income'].median(), 2)
+    }
+
+def save_metrics(metrics: dict, path: str = 'data/monitoring/metrics_history.jsonl'):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    with open(path, 'a') as f:
+        f.write(json.dumps(metrics) + '\n')
+
+def detect_drift(path: str = 'data/monitoring/metrics_history.jsonl') -> dict:
+    lines = Path(path).read_text().strip().split('\n')
+    if len(lines) < 2:
+        return {"drift_detected": False, "message": "histórico insuficiente"}
+    prev = json.loads(lines[-2])
+    curr = json.loads(lines[-1])
+    delta = abs(curr['default_rate_pct'] - prev['default_rate_pct'])
+    threshold = 10.0
+    return {
+        "drift_detected": delta > threshold,
+        "delta_pct": round(delta, 4),
+        "prev_run": prev['run_id'],
+        "curr_run": curr['run_id'],
+        "alert": f"Default rate mudou {delta:.2f}%" if delta > threshold else None
+    }</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 4.3 — Deploy no GCP Cloud Run <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· ferramenta: <code>gcloud CLI</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase4" data-challenge="4.3" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> Dockerfile da Fase 3 + conta GCP</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> URL pública (ex: https://credit-api-xxx.run.app)</span>
+      <span class="io-badge">🔗 <strong>Automatizado por:</strong> GitHub Actions no 4.4</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Faça o deploy da imagem do 3.3 no Cloud Run. A sequência tem quatro etapas em ordem — cada uma depende da anterior.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>APIs:</strong> <code>gcloud services enable run.googleapis.com artifactregistry.googleapis.com</code> — sem isso, os comandos seguintes falham com erros de permissão ambíguos</li>
+      <li><strong>Repositório:</strong> <code>gcloud artifacts repositories create credit-api --repository-format=docker --location=us-central1</code></li>
+      <li><strong>Build e push:</strong> <code>IMAGE=us-central1-docker.pkg.dev/$PROJECT_ID/credit-api/credit-api:latest</code>; <code>gcloud auth configure-docker us-central1-docker.pkg.dev</code>; <code>docker build -t $IMAGE . && docker push $IMAGE</code></li>
+      <li><strong>Deploy:</strong> <code>gcloud run deploy credit-api --image $IMAGE --allow-unauthenticated --port 8000 --memory 512Mi</code> — sem <code>--port 8000</code>, Cloud Run assume 8080 e a API não responde; guarde a URL gerada</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que Cloud Run?</strong> É serverless — você não gerencia servidor, só o container. Escala a zero quando não tem tráfego (custo zero no free tier). Deploy é um comando. Para um projeto de portfólio, é exatamente o que você precisa: URL real, zero overhead operacional.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Configurar projeto e criar repositório no Artifact Registry</span>
+        </div>
+        <div class="step-body">
+          <p>Ative as APIs com <code>gcloud services enable run.googleapis.com artifactregistry.googleapis.com</code>, depois crie o repositório com <code>gcloud artifacts repositories create credit-api --repository-format=docker --location=us-central1</code>. O Artifact Registry é o registry privado do GCP — substitui o Docker Hub nesse contexto. <strong>Antes de rodar:</strong> por que usar Artifact Registry em vez de Docker Hub? (privacidade, integração com IAM do GCP, latência menor no deploy)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Build e push da imagem Docker</span>
+        </div>
+        <div class="step-body">
+          <p>Configure o auth com <code>gcloud auth configure-docker us-central1-docker.pkg.dev</code>, depois: <code>docker build -t $IMAGE .</code> e <code>docker push $IMAGE</code>. A variável <code>IMAGE</code> deve seguir o padrão <code>REGION-docker.pkg.dev/PROJECT_ID/REPO/SERVICE:TAG</code>. <strong>Antes de rodar:</strong> se o build falhar, o push não acontece — corrija o Dockerfile antes de tentar o push.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Deploy no Cloud Run com URL pública</span>
+        </div>
+        <div class="step-body">
+          <p>Rode <code>gcloud run deploy credit-api --image $IMAGE --platform managed --region us-central1 --allow-unauthenticated --port 8000 --memory 512Mi</code>. O <code>--allow-unauthenticated</code> torna a URL pública — sem ele, só requests autenticados com credenciais GCP funcionam. <strong>Após o deploy:</strong> guarda a URL gerada — você vai usá-la no CI/CD do 4.4 e pode mencioná-la na entrevista.</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete os comandos gcloud sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code># Ativar APIs necessárias
+gcloud services <input class="code-blank" data-answer="enable" placeholder="???" size="8"> run.googleapis.com artifactregistry.googleapis.com
+
+# Criar repositório no Artifact Registry
+gcloud artifacts repositories create credit-api \
+  --repository-format=<input class="code-blank" data-answer="docker" placeholder="???" size="8"> \
+  --location=us-central1
+
+# Configurar auth Docker + build + push
+export IMAGE=us-central1-docker.pkg.dev/$PROJECT_ID/credit-api/credit-api:latest
+gcloud auth configure-docker <input class="code-blank" data-answer="us-central1-docker.pkg.dev" placeholder="???" size="28">
+docker build -t <input class="code-blank" data-answer="$IMAGE" placeholder="???" size="8"> .
+docker push $IMAGE
+
+# Deploy no Cloud Run
+gcloud run deploy credit-api \
+  --image $IMAGE \
+  --platform managed \
+  --region us-central1 \
+  --<input class="code-blank" data-answer="allow-unauthenticated" placeholder="???" size="22"> \
+  --port <input class="code-blank" data-answer="8000" placeholder="???" size="6"> \
+  --memory 512Mi</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Após o deploy: <code>curl https://sua-url.run.app/health</code> e <code>curl https://sua-url.run.app/risk-summary</code>. Teste de qualquer máquina, sem VPN, sem credenciais. Verifique também no console do GCP: Cloud Run → seu serviço → aba "Revisões".</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>URL pública retorna <code>{"status": "ok", ...}</code> de qualquer lugar. O console do Cloud Run mostra a revisão com status "Serving traffic" e a tag do build que você fez. Guarde a URL — você vai usá-la como prova de deploy na Fase 4.4 e pode referenciar em entrevistas.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python"># 1. Configura variáveis
+export PROJECT_ID=credit-pipeline-demo
+export REGION=us-central1
+export SERVICE=credit-api
+
+# 2. Autentica e configura gcloud
+gcloud auth login
+gcloud config set project $PROJECT_ID
+
+# 3. Ativa APIs necessárias
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com
+
+# 4. Cria repositório no Artifact Registry
+gcloud artifacts repositories create credit-api \
+  --repository-format=docker \
+  --location=$REGION
+
+# 5. Build e push da imagem
+export IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/credit-api/$SERVICE:latest
+gcloud auth configure-docker $REGION-docker.pkg.dev
+docker build -t $IMAGE .
+docker push $IMAGE
+
+# 6. Deploy no Cloud Run
+gcloud run deploy $SERVICE \
+  --image $IMAGE \
+  --platform managed \
+  --region $REGION \
+  --allow-unauthenticated \
+  --port 8000 \
+  --memory 512Mi</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 4.4 — CI/CD com GitHub Actions <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>.github/workflows/pipeline.yml</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase4" data-challenge="4.4" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> push no branch main</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> testes rodados + nova versão deployada no Cloud Run automaticamente</span>
+      <span class="io-badge">🔗 <strong>Usa:</strong> Dockerfile (Fase 3) + credenciais GCP (GitHub Secrets)</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete em <code>.github/workflows/pipeline.yml</code> um workflow CI/CD com dois jobs em sequência. Trigger em <code>push</code> e <code>pull_request</code> para <code>main</code>.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Job <code>test</code>:</strong> <code>ubuntu-latest</code>, <code>actions/setup-python@v5</code> com <code>python-version: '3.11'</code>, <code>pip install -r requirements.txt</code>, <code>pytest tests/ -v</code></li>
+      <li><strong>Job <code>deploy</code>:</strong> <code>needs: test</code> + <code>if: github.ref == 'refs/heads/main'</code> — PRs ativam só o teste, nunca o deploy; autenticação via <code>google-github-actions/auth@v2</code> com <code>credentials_json: ${{ secrets.GCP_SA_KEY }}</code></li>
+      <li><strong>Tag da imagem:</strong> <code>$GITHUB_SHA</code> — cada commit gera uma versão rastreável; qualquer revisão anterior é recuperável no Artifact Registry sem reconstrução</li>
+      <li><strong>Secrets:</strong> <code>GCP_SA_KEY</code> e <code>GCP_PROJECT_ID</code> em <code>Settings → Secrets → Actions</code> — nunca em código; credenciais em código é o erro #1 de segurança em CI/CD</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Onde ficam as credenciais do GCP?</strong> Em <code>Settings → Secrets and variables → Actions</code> do repositório GitHub — nunca em código. O workflow acessa via <code>${{ secrets.GCP_SA_KEY }}</code>. Credenciais em código são o erro número 1 de segurança em pipelines de CI/CD.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Criar o job de testes com dependências Python</span>
+        </div>
+        <div class="step-body">
+          <p>No arquivo <code>.github/workflows/pipeline.yml</code>, crie o job <code>test</code> com <code>runs-on: ubuntu-latest</code>. Use as actions <code>actions/checkout@v4</code> e <code>actions/setup-python@v5</code> (com <code>python-version: '3.11'</code>), depois <code>run: pip install -r requirements.txt</code> e <code>run: pytest tests/ -v</code>. <strong>Antes de escrever:</strong> o que acontece se o <code>requirements.txt</code> estiver desatualizado e faltar um pacote? O job falha em <code>pip install</code>, não em <code>pytest</code>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Criar o job de deploy com needs e condicional de branch</span>
+        </div>
+        <div class="step-body">
+          <p>Crie o job <code>deploy</code> com <code>needs: test</code> (garante que testes passem antes) e <code>if: github.ref == 'refs/heads/main'</code> (PRs rodam só os testes, nunca o deploy). Use <code>google-github-actions/auth@v2</code> com <code>credentials_json: ${{ secrets.GCP_SA_KEY }}</code>. <strong>Antes de configurar:</strong> adicione <code>GCP_SA_KEY</code> e <code>GCP_PROJECT_ID</code> em <code>Settings → Secrets and variables → Actions</code> — nunca em código.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Build, push e deploy no passo final do job</span>
+        </div>
+        <div class="step-body">
+          <p>No step final do job <code>deploy</code>, use <code>GITHUB_SHA</code> como tag da imagem: <code>IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/credit-api/$SERVICE:$GITHUB_SHA</code>. Assim cada commit tem sua própria imagem — você consegue fazer rollback para qualquer versão anterior. <strong>Antes de rodar:</strong> commita um teste que falha de propósito e veja a aba "Actions" — o job de deploy não deve aparecer.</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete o workflow GitHub Actions sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>name: Credit Pipeline CI/CD
+
+on:
+  push:
+    branches: [<input class="code-blank" data-answer="main" placeholder="???" size="6">]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: <input class="code-blank" data-answer="pytest" placeholder="???" size="8"> tests/ -v
+
+  deploy:
+    <input class="code-blank" data-answer="needs" placeholder="???" size="7">: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/<input class="code-blank" data-answer="main" placeholder="???" size="6">'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.<input class="code-blank" data-answer="GCP_SA_KEY" placeholder="???" size="12"> }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push
+        run: |
+          IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/credit-api/$SERVICE:<input class="code-blank" data-answer="$GITHUB_SHA" placeholder="???" size="13">
+          gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+          docker build -t $IMAGE .
+          docker push $IMAGE
+          gcloud run deploy $SERVICE --image $IMAGE \
+            --platform managed --region $REGION \
+            --allow-unauthenticated</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Faça push para <code>main</code> e abra a aba "Actions" no GitHub. Observe os dois jobs. Para validar o gate: adicione <code>assert False</code> em qualquer teste, commite e faça push — observe o que acontece com o job de deploy.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>A aba Actions mostra os dois jobs em sequência: <code>test</code> com ✅ e <code>deploy</code> com ✅. Ao quebrar um teste de propósito, <code>test</code> aparece com ❌ e <code>deploy</code> com "skipped" — nunca executa. Cada deploy bem-sucedido cria uma nova revisão no Cloud Run com a tag do SHA do commit correspondente.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">name: Credit Pipeline CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: us-central1
+  SERVICE: credit-api
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: pytest tests/ -v
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Build and push
+        run: |
+          IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/credit-api/$SERVICE:$GITHUB_SHA
+          gcloud auth configure-docker $REGION-docker.pkg.dev --quiet
+          docker build -t $IMAGE .
+          docker push $IMAGE
+          gcloud run deploy $SERVICE \
+            --image $IMAGE \
+            --platform managed \
+            --region $REGION \
+            --allow-unauthenticated</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 4.5 — Demo ao vivo: sistema pronto pra ser demonstrado <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivos: <code>scripts/demo_warmup.sh</code> + <code>demo.md</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase4" data-challenge="4.5" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> URL pública do Cloud Run (gerada no 4.3)</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> script de warm-up + runbook de 5 minutos que você segue pra qualquer demonstração do sistema rodando</span>
+      <span class="io-badge">🔗 <strong>Usa:</strong> /health + /risk-summary da API + GitHub Actions + Cloud Run Logs</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Dois artefatos pequenos mas críticos para transformar "tenho URL ao vivo" em "demo de 5 minutos que funciona em qualquer cenário de apresentação":</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong><code>scripts/demo_warmup.sh</code>:</strong> aceita <code>$1</code> como URL do serviço, chama <code>/health</code> e <code>/risk-summary</code> sequencialmente, abre <code>/docs</code> no navegador. Rodado 60s antes de apresentar, garante que a instância do Cloud Run esteja quente (primeira chamada em cold start leva 3-5s — inaceitável ao vivo).</li>
+      <li><strong><code>demo.md</code> na raiz:</strong> runbook de 5 minutos estruturado em três beats — (1) "está no ar" via Swagger, (2) "qual é a carteira" via <code>/risk-summary</code>, (3) "como eu sei que não quebrou" mostrando a aba Actions do GitHub + logs do Cloud Run. Inclui três perguntas frequentes com respostas pré-escritas de 1-2 frases.</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que isso é um desafio e não uma nota de rodapé?</strong> Em qualquer cenário onde você precisa demonstrar o sistema em 5 minutos — validação pessoal pós-deploy, showcase para mentor ou colaborador, revisão de portfólio, entrevista técnica — cold start de 4 segundos, um id errado digitado no <code>curl</code>, uma aba do GitHub Actions que não tá carregada mata a demo. O script não automatiza nada complexo, só elimina o que quebraria sozinho. Times de produto sério fazem isso pra todo release demo. É a diferença entre "funciona na minha máquina" e "funciona quando alguém está assistindo".
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Script de warm-up que dispara /health + /risk-summary</span>
+        </div>
+        <div class="step-body">
+          <p>Crie <code>scripts/demo_warmup.sh</code> com <code>set -e</code>, aceite a URL como argumento (default: URL do Cloud Run), rode <code>curl -s $URL/health | jq</code>, depois <code>curl -s $URL/risk-summary | jq</code>, e finalize com <code>open $URL/docs</code> (macOS) ou <code>xdg-open</code> (Linux). <strong>Antes de escrever:</strong> por que não chamar só <code>/health</code>? (o Python do FastAPI carrega <code>pd.read_parquet()</code> na primeira chamada que toca o DataFrame — <code>/risk-summary</code> é o que realmente "aquece" o endpoint pesado).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Runbook demo.md com 3 beats</span>
+        </div>
+        <div class="step-body">
+          <p>Escreva 3 seções curtas: (a) "Setup 60s antes de apresentar" — <code>./scripts/demo_warmup.sh</code> + abrir tabs; (b) "Roteiro de 5 minutos" — Swagger mostra endpoints, <code>/health</code> prova uptime, <code>/risk-summary</code> mostra o dado real, Actions + Logs mostram o sistema observável; (c) "Perguntas frequentes" — 3 perguntas comuns com resposta em 1-2 frases. <strong>Antes de escrever:</strong> o runbook é pra você ler ao vivo, não pra decorar. Linguagem direta, sem adjetivo.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Ensaio cronometrado</span>
+        </div>
+        <div class="step-body">
+          <p>Roda <code>./scripts/demo_warmup.sh</code>, espera 30 segundos, e executa o roteiro <strong>em voz alta</strong> cronometrando. Objetivo: sob 5 minutos, sem voltar atrás, sem pausas procurando coisa. Se travar em algum beat, o runbook precisa de mais detalhe. <strong>Antes do ensaio:</strong> se você usa as mãos pra explicar e faz a demo sem olhar no runbook, é porque já internalizou — isso é o sinal.</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>(a) <code>bash scripts/demo_warmup.sh https://sua-url.run.app</code> termina em ~2s sem erro, as duas respostas JSON são válidas, e a aba <code>/docs</code> abre no navegador. (b) Cronometra você mesmo executando o <code>demo.md</code> de ponta a ponta — deve caber em 5 minutos. (c) Ensaia com alguém (amigo, gravação) e pergunta se entendeu o que o sistema faz sem pedir repetição.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Uma segunda chamada a <code>/risk-summary</code> logo depois do warm-up responde em &lt;200ms (sem cold start). Na demo, você abre o Swagger e quem estiver assistindo já vê os endpoints sem você explicar onde eles estão. Ao final, você tem as 3 perguntas frequentes respondidas sem gaguejar: (1) "como escala?" — Cloud Run autoscale, min=0 max=N; (2) "como sabe que não quebrou?" — Actions + Cloud Run logs; (3) "como faz rollback?" — cada deploy é uma revisão, <code>gcloud run services update-traffic</code>.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-bash">#!/usr/bin/env bash
+# scripts/demo_warmup.sh — aquece Cloud Run 60s antes de apresentar
+set -euo pipefail
+
+URL="${1:-https://credit-api-xxxxx-uc.a.run.app}"
+
+echo "▶ Warm-up do Cloud Run: $URL"
+echo ""
+echo "1/2 · GET /health"
+curl -s "$URL/health" | jq .
+echo ""
+echo "2/2 · GET /risk-summary (carrega o parquet)"
+curl -s "$URL/risk-summary" | jq '{total_records, default_rate_pct, risk_tier_distribution_pct}'
+echo ""
+
+# Abre tabs que você vai mostrar
+if command -v open &gt;/dev/null; then
+  open "$URL/docs"                               # Swagger
+  open "https://github.com/SEU_USER/credit-intelligence-pipeline/actions"
+  open "https://console.cloud.google.com/run"
+else
+  xdg-open "$URL/docs"
+fi
+
+echo "✅ Pronto. Espere 30s e comece a demo."</code></pre>
+      <pre><code class="language-markdown"># demo.md — Runbook de demonstração do pipeline (5 min)
+
+## Setup (60s antes da call)
+```bash
+./scripts/demo_warmup.sh https://credit-api-xxxxx-uc.a.run.app
+```
+Espere 30s. Isso aquece a instância e abre 3 tabs: Swagger, GitHub Actions, Cloud Run console.
+
+## Roteiro (5 min, 3 beats)
+
+### Beat 1 · Está no ar (60s)
+- Abre Swagger `/docs`
+- "A API expõe `/health` e `/risk-summary`. Deploy é no Cloud Run, URL pública."
+- Clica `/risk-summary` → "Try it out" → Execute. Resposta aparece.
+- "144 mil registros, default rate 6.8%, distribuição em 3 tiers. Dado real processado pelo pipeline."
+
+### Beat 2 · Como o dado chegou aqui (2 min)
+- "O mart é gerado por um pipeline Prefect: ingestão CSV + API de bureau → validação → DuckDB SQL → Parquet. A API não gera o dado, só serve. O parquet vem de um bucket GCS com SA dedicada."
+- Se perguntarem sobre feature: "colunas são `risk_tier`, `default_rate`, `monthly_income`, etc — derivadas de um modelo SQL em `models/mart_credit_features.sql`."
+
+### Beat 3 · Como sei que não quebrou (2 min)
+- Abre aba GitHub Actions → último run verde.
+- "Cada push pra main roda testes e faz deploy. Se teste falhar, deploy nem começa."
+- Abre Cloud Run console → Logs.
+- "Logging é JSON estruturado, indexável por `run_id`. Drift entre execuções é detectado e persistido em JSONL."
+
+## Perguntas prontas
+
+**"Como escala?"**
+Cloud Run autoscale: min=0, max configurável. Escala a zero quando sem tráfego (custo zero). Primeira request depois de inatividade tem cold start de 2-3s — por isso o warm-up.
+
+**"Como sabe que não quebrou em produção?"**
+GitHub Actions bloqueia deploy se teste falhar. Cloud Run Logs capturam todo log JSON estruturado. Drift detection compara métricas entre runs do pipeline e persiste em `metrics_history.jsonl`.
+
+**"Como faz rollback?"**
+Cada deploy é uma Revisão no Cloud Run (tag = SHA do commit). `gcloud run services update-traffic credit-api --to-revisions REV=100` redireciona tráfego pra qualquer revisão anterior em segundos. Sem rebuild.</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="variations">
+  <div class="variations-title">⚡ Variações deliberadas — escreva sua previsão antes de testar</div>
+  <ul class="checklist">
+    <li>Sobe o threshold de drift para 1% em vez de 10%. Quantas execuções idênticas ainda disparariam alerta? O que isso diz sobre calibrar limites de monitoramento?</li>
+    <li>Abre o Cloud Run console enquanto faz uma requisição. O que você vê em "Logs"? Compare com o output local.</li>
+    <li>Commita código que quebra um teste. O deploy anterior na URL pública continua funcionando enquanto o Actions falha?</li>
+    <li>Adiciona <code>--min-instances 1</code> no deploy. O que muda no custo e na latência da primeira requisição (cold start)?</li>
+  </ul>
+</div>
+
+<div class="blank-test">
+  <strong>Teste da página em branco:</strong> descreve em voz alta os 4 passos para colocar um container Docker em produção no Cloud Run. Sem consultar. Se você travar no passo 2, o CI/CD automatiza exatamente aquele passo.
+</div>
+
+<div class="page-nav">
+  <a class="btn-nav" href="fase-3.html">← Fase 3: Orquestração + API</a>
+  <a class="btn-nav" href="bonus.html">Bônus: LLM Intelligence →</a>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bônus Fase 4 — Explicabilidade via LLM (rule-based)</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-theme">
+<style>
+.bonus-banner {
+  background: linear-gradient(135deg, var(--accent-light), var(--purple));
+  border: 1px solid var(--accent); border-radius: var(--radius);
+  padding: 1.5rem; margin: 2rem 0;
+}
+.bonus-banner h2 { border: none; margin: 0 0 0.5rem; color: var(--accent); font-size: 1.1rem; }
+.bonus-banner p { margin: 0; font-size: 0.92rem; color: var(--text); line-height: 1.6; }
+.why-matters {
+  background: var(--bg-2); border-left: 3px solid var(--accent);
+  padding: 0.85rem 1.1rem; border-radius: 0 8px 8px 0;
+  font-style: italic; font-size: 0.9rem; color: var(--muted); margin: 1rem 0 0;
+}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html">Hub</a>
+      <a href="fase-1.html">Fase 1</a>
+      <a href="fase-2.html">Fase 2</a>
+      <a href="fase-3.html">Fase 3</a>
+      <a href="fase-4.html">Fase 4</a>
+      <a href="bonus-fase4.html" class="active">Bônus F4 ✨</a>
+      <a href="fase-5.html">Fase 5</a>
+      <a href="bonus-fase5.html">Bônus F5 ✨</a>
+      <a href="docs.html">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()"><span id="theme-icon">🌙</span> <span id="theme-label">Dark</span></button>
+  </div>
+</div>
+<div class="container">
+
+<div class="phase-header">
+  <div class="phase-label">✨ Bônus Fase 4 · Explicabilidade via LLM (v1 — regra SQL)</div>
+  <div class="phase-question">"E se a API não só devolvesse a decisão de crédito — mas também explicasse, em PT-BR, por que aquele tomador específico foi aprovado, limitado ou negado?"<br><em style="font-size:0.85em;color:var(--muted);">v1: decisão vem da regra SQL da Fase 2. Na Fase 5 treina-se um modelo; no Bônus Fase 5 o LLM narra o modelo.</em></div>
+</div>
+
+<div class="bonus-banner">
+  <h2>🧠 Por que isso muda o nível da conversa na entrevista</h2>
+  <p>Motores de crédito B2B vendem a camada de inteligência que entrega <em>"crédito em segundos"</em> para SaaS verticais — e decisão de crédito no Brasil é caminho regulado: o tomador tem direito a saber por que foi negado. Este módulo constrói exatamente isso: um endpoint que recebe um <code>application_id</code>, busca os fatores determinantes no mart, e devolve uma narrativa em PT-BR gerada por LLM com guardrails explícitos contra alucinação. Não é dashboard narrado — é reason-code em produção, o mesmo tipo de coisa que vira ticket no board do time.</p>
+  <div class="why-matters">
+    "O pipeline tem um endpoint de explicação de decisão: você passa o id do tomador, o motor extrai deterministicamente os 3 fatores de maior peso no score, e o LLM narra a decisão em PT-BR sem poder inventar número — só pode citar os valores que eu passei no contexto. Tenho URL ao vivo."
+  </div>
+</div>
+
+<p><strong>Entrega:</strong> <code>src/decision_explainer_rule.py</code> + endpoint <code>GET /explain-decision/rule/{applicant_id}</code> na API FastAPI retornando decisão + narrativa LLM com guardrails + script <code>scripts/eval_explainer_rule.py</code> que roda eval programático em lote e gera relatório de eficácia + runbook de demo ao vivo.</p>
+<p><strong>Pré-requisito:</strong> <code>mart_credit_features.parquet</code> gerado (Fase 2) com colunas <code>risk_tier</code>, <code>defaulted</code>, features de renda/dívida/inadimplência. ANTHROPIC_API_KEY ou OPENAI_API_KEY como variável de ambiente.</p>
+
+<hr>
+
+<div class="phase-flow">
+  <div class="phase-flow-title">🔗 Como os desafios se conectam neste módulo</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">B.1 · src/decision_explainer.py</div>
+      <div class="flow-step-label">Reason-codes + LLM</div>
+      <div class="flow-step-out">Lê o mart, extrai deterministicamente os 3 fatores de maior desvio vs. mediana, monta prompt com guardrails, chama LLM e devolve narrativa</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">B.2 · api/main.py</div>
+      <div class="flow-step-label">Endpoint /explain-decision/rule/{id}</div>
+      <div class="flow-step-out">Expõe via REST com cache por <code>application_id</code> (30min TTL) — a mesma API já deployada no Cloud Run</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">B.3 · scripts/eval_explainer.py</div>
+      <div class="flow-step-label">Eval programático em lote</div>
+      <div class="flow-step-out">Roda o explicador em N amostras estratificadas por tier, aplica 3 checks (grounded-ness, alinhamento, forbidden content), gera relatório JSON + pass rate + custo total</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">B.4 · demo-bonus.md</div>
+      <div class="flow-step-label">Demo ao vivo do explicador</div>
+      <div class="flow-step-out">Runbook + warm-up específicos do endpoint LLM com 3 ids pré-validados (1 APROVADO, 1 LIMITE, 1 NEGADO) + showcase do eval report como killer moment</div>
+    </div>
+  </div>
+</div>
+
+<div class="connect-note">
+  <strong>O que liga tudo:</strong> o <code>mart_credit_features.parquet</code> da Fase 2 é o input do extrator. A função determinística decide <em>o que</em> o LLM pode falar; o LLM decide <em>como</em> falar. Essa separação é o que torna reason-code LLM utilizável em produção — sem ela, o modelo inventa número e o time jurídico veta. O endpoint <code>/explain-decision</code> reusa a API da Fase 4, sem novo serviço.
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio B.1 — Extrator de reason-codes + narrador LLM <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/decision_explainer.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="bonus" data-challenge="B.1" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> application_id (int) + mart parquet</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> dict com decision, risk_tier, key_factors, narrative</span>
+      <span class="io-badge">🔗 <strong>Chamado por:</strong> endpoint /explain-decision do B.2</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Duas funções em <code>src/decision_explainer.py</code>:</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong><code>extract_context(application_id, mart_path)</code>:</strong> lê o mart, localiza a linha, mapeia <code>risk_tier</code> → decisão (<code>LOW</code>→APROVADO, <code>MEDIUM</code>→APROVADO_COM_LIMITE, <code>HIGH</code>→NEGADO), e calcula os <strong>3 fatores com maior desvio</strong> em relação à mediana da carteira (ratio absoluto). Retorna dict determinístico — sem LLM ainda.</li>
+      <li><strong><code>explain_decision(application_id, mart_path)</code>:</strong> chama <code>extract_context</code>, monta o prompt com os fatores, chama o LLM com restrição explícita ("cite APENAS os valores acima, não invente número"), devolve dict com os campos do contexto + <code>narrative</code> + <code>generated_at</code>.</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que separar extração e narração?</strong> Se o LLM decide sozinho quais fatores mencionar, ele seleciona o que parece plausível — e pode omitir uma feature crítica ou inventar uma que não existe. Com a extração determinística antes, você controla <em>o que</em> pode ser dito; o LLM só controla o <em>tom</em> e a <em>estrutura da frase</em>. Essa separação é o que permite passar revisão de compliance — é a mesma lógica que bancos usam no reason-code de negativa de crédito.
+    </div>
+    <span class="tag tag-hint">💡 Dica</span>
+    <p>Desvio vs mediana: <code>ratio = (valor - mediana) / (abs(mediana) + 1e-9)</code>, ordena por <code>abs(ratio)</code> desc, pega top 3. Guardrails no prompt importam: <em>"use apenas os valores listados"</em>, <em>"não mencione raça, gênero, CEP"</em>, <em>"máximo 3 frases"</em>. Se o mart tiver &lt;10 linhas (teste unitário), a mediana degenera — retornar erro explícito.</p>
+    <span class="tag tag-criteria">🔧 Critério</span>
+    <p>Dois testes que separam lógica de LLM: (a) <code>test_extract_context_deterministic</code> — dado o mesmo <code>application_id</code>, <code>extract_context</code> retorna sempre os mesmos <code>key_factors</code>. (b) <code>test_narrative_grounded</code> — a <code>narrative</code> contém pelo menos um dos valores numéricos dos <code>key_factors</code> (regex na string). Esse segundo teste é o anti-alucinação mínimo.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import os
+from datetime import datetime
+from pathlib import Path
+import pandas as pd
+from anthropic import Anthropic
+
+client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+
+DECISION_BY_TIER = {
+    "LOW":    "APROVADO",
+    "MEDIUM": "APROVADO_COM_LIMITE",
+    "HIGH":   "NEGADO",
+}
+
+# (feature_no_mart, label_humano, direção_no_risco)
+FEATURES = [
+    ("debt_ratio",       "Razão dívida/renda",           "alto_aumenta_risco"),
+    ("monthly_income",   "Renda mensal declarada",       "alto_reduz_risco"),
+    ("age",              "Idade",                        "neutro"),
+    ("num_late_60_89",   "Atrasos recentes (60-89 dias)", "alto_aumenta_risco"),
+    ("income_missing",   "Renda não declarada",          "alto_aumenta_risco"),
+]
+
+def extract_context(application_id: int,
+                    mart_path: str = "data/marts/mart_credit_features.parquet") -> dict:
+    df = pd.read_parquet(mart_path)
+    if not (0 <= application_id < len(df)):
+        raise ValueError(f"application_id {application_id} fora de range (0..{len(df)-1})")
+
+    row = df.iloc[application_id]
+    cols = [f[0] for f in FEATURES if f[0] in df.columns]
+    medians = df[cols].median()
+
+    factors = []
+    for col, label, direction in FEATURES:
+        if col not in df.columns:
+            continue
+        val = float(row[col])
+        med = float(medians[col])
+        ratio = (val - med) / (abs(med) + 1e-9)
+        factors.append({
+            "feature": col, "label": label,
+            "value": round(val, 2), "median": round(med, 2),
+            "deviation_ratio": round(ratio, 2), "direction": direction,
+        })
+    factors.sort(key=lambda f: abs(f["deviation_ratio"]), reverse=True)
+
+    return {
+        "application_id": application_id,
+        "risk_tier": row["risk_tier"],
+        "decision": DECISION_BY_TIER[row["risk_tier"]],
+        "key_factors": factors[:3],
+    }
+
+def _build_prompt(ctx: dict) -> str:
+    factors_text = "\n".join(
+        f"- {f['label']}: {f['value']} (mediana da carteira: {f['median']})"
+        for f in ctx["key_factors"]
+    )
+    return f"""Você é um analista de crédito de um motor de crédito B2B. Um tomador recebeu a decisão {ctx['decision']} (tier de risco {ctx['risk_tier']}).
+
+Fatores extraídos pelo motor de risco:
+{factors_text}
+
+Escreva uma explicação em português, máximo 3 frases, dirigida ao próprio tomador.
+
+RESTRIÇÕES OBRIGATÓRIAS:
+- Cite APENAS os valores listados acima. Não invente números.
+- Não mencione raça, gênero, endereço, CEP ou qualquer atributo sensível.
+- Não prometa reversão da decisão. Seja factual, não motivacional."""
+
+def explain_decision(application_id: int,
+                     mart_path: str = "data/marts/mart_credit_features.parquet") -> dict:
+    ctx = extract_context(application_id, mart_path)
+    prompt = _build_prompt(ctx)
+    response = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return {
+        **ctx,
+        "narrative": response.content[0].text,
+        "generated_at": datetime.now().isoformat(),
+        # Observabilidade do LLM — consumido pelo eval (B.3) e por dashboards de custo
+        "_usage": {
+            "model": response.model,
+            "input_tokens":  response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+        },
+    }</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio B.2 — Endpoint /explain-decision com cache por chave <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>api/main.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="bonus" data-challenge="B.2" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> GET /explain-decision/rule/{application_id}</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> JSON com decision + key_factors + narrative + cached</span>
+      <span class="io-badge">🔗 <strong>Adicionado em:</strong> api/main.py já deployado no Cloud Run</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Adicione <code>GET /explain-decision/rule/{application_id}</code> em <code>api/main.py</code> que chama <code>explain_decision()</code> e retorna o resultado com <code>cached: bool</code>. Cache em dict Python indexado por <code>application_id</code>, TTL de 30 minutos. Se o id estiver fora de range, devolve <code>HTTPException 404</code>.</p>
+    <div class="connect-note">
+      <strong>Por que cache por chave e não global?</strong> O endpoint <code>/insights</code> das versões anteriores deste bônus cachava uma única resposta global com TTL curto — fazia sentido porque a entrada era sempre o mesmo arquivo de métricas. Aqui a entrada varia por <code>application_id</code>: cachear globalmente significa que o tomador 7 receberia a explicação do tomador 3. Cache por chave é o padrão correto toda vez que a resposta depende do input. TTL de 30min reflete que a explicação de uma decisão específica não muda (mesmo mart, mesmo modelo, mesmo prompt = mesma saída) — mas você quer invalidar se o modelo de risco for retreinado.
+    </div>
+    <span class="tag tag-hint">💡 Dica</span>
+    <p><code>_explanation_cache: dict[int, dict] = {{}}</code> na escala de módulo. Guarda <code>_cached_at</code> como campo interno; filtra antes de devolver. No Cloud Run com múltiplas instâncias cada réplica tem seu próprio cache — aceitável aqui (explicação é idempotente), mas a variação abaixo discute quando isso vira problema.</p>
+    <span class="tag tag-criteria">🔧 Critério</span>
+    <p>Três <code>curl</code> em sequência: <code>/explain-decision/7</code> → <code>cached: false</code>; <code>/explain-decision/7</code> de novo → <code>cached: true</code> e <code>generated_at</code> idêntico; <code>/explain-decision/8</code> → <code>cached: false</code> (chave diferente). <code>/explain-decision/999999</code> → 404 com detail explicativo. Após o deploy, a URL pública também responde — testa em <code>https://&lt;sua-url&gt;/explain-decision/7</code>.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python"># Adiciona em api/main.py junto com os endpoints existentes
+from datetime import datetime, timedelta
+from fastapi import HTTPException
+import sys
+sys.path.append('.')
+from src.decision_explainer import explain_decision
+
+_explanation_cache: dict[int, dict] = {}
+EXPLANATION_TTL_MINUTES = 30
+
+@app.get("/explain-decision/rule/{application_id}")
+def explain(application_id: int):
+    now = datetime.now()
+    cached = _explanation_cache.get(application_id)
+    if cached and (now - cached["_cached_at"]) < timedelta(minutes=EXPLANATION_TTL_MINUTES):
+        return {**{k: v for k, v in cached.items() if k != "_cached_at"}, "cached": True}
+
+    try:
+        result = explain_decision(application_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    _explanation_cache[application_id] = {**result, "_cached_at": now}
+    return {**result, "cached": False}</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio B.3 — Eval do explicador em lote <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>scripts/eval_explainer.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="bonus" data-challenge="B.3" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> mart parquet + N amostras (default 21, estratificadas por tier)</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> <code>reports/eval_explainer_&lt;timestamp&gt;.json</code> com pass_rate por check, latência p95, custo total em USD, lista de violações</span>
+      <span class="io-badge">🔗 <strong>Gate de CI:</strong> sai com exit 1 se <code>pass_rate_overall &lt; 0.95</code></span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Script que amostra <strong>N <code>application_id</code>s estratificados</strong> (proporção do tier na carteira: ~70% LOW, 16% MEDIUM, 14% HIGH — default 15/3/3), chama <code>explain_decision</code> em cada um, e aplica <strong>três checks programáticos</strong>:</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Check 1 — Grounded-ness:</strong> todo número que aparece na <code>narrative</code> (extraído via regex <code>r"\d+[.,]?\d*"</code>) precisa existir entre os <code>value</code>/<code>median</code> dos <code>key_factors</code> (com tolerância de arredondamento). Detecta alucinação numérica.</li>
+      <li><strong>Check 2 — Alinhamento decisão↔fator:</strong> se <code>decision == "NEGADO"</code>, pelo menos um fator com <code>direction == "alto_aumenta_risco"</code> deve estar no top-3. Detecta o caso em que o LLM narra uma coisa e o extrator apontou outra — sintoma de prompt mal construído.</li>
+      <li><strong>Check 3 — Forbidden content:</strong> a <code>narrative</code> não pode conter nenhuma substring de uma lista fixa (<code>["cep", "endereço", "raça", "gênero", "estado civil", "religião"]</code>, case-insensitive). Checagem de compliance mínima.</li>
+    </ul>
+    <p>O relatório final agrega: <code>pass_rate_grounded</code>, <code>pass_rate_aligned</code>, <code>pass_rate_forbidden</code>, <code>pass_rate_overall</code> (AND dos três), <code>latency_p95_ms</code>, <code>cost_usd_total</code>, <code>violations</code> (lista de {application_id, check, detail}). Se <code>pass_rate_overall &lt; 0.95</code>, exit 1 — gate de CI.</p>
+    <div class="connect-note">
+      <strong>Por que eval automatizado, não revisão manual?</strong> O problema com LLM em produção não é que ele erra — é que erra de forma silenciosa e não-determinística. Uma mudança de prompt ou troca de modelo pode passar "vibe check" e introduzir alucinação em 5% dos casos sem ninguém perceber. Eval em lote com checks binários é a única forma de detectar regressão antes que um tomador contestado pelo Bacen descubra. Em time real, esse script roda em PR hook — se a taxa cai abaixo de 95%, o PR não faz merge.
+    </div>
+    <span class="tag tag-hint">💡 Dica</span>
+    <p>Latência por chamada: <code>t0 = time.perf_counter()</code> antes, delta depois; agrega com <code>numpy.percentile(latencies, 95)</code>. Custo: conta tokens de entrada/saída do <code>response.usage</code> da SDK Anthropic e multiplica pelo preço tabelado do Haiku (custo de input + output). Estratificação: <code>df.groupby('risk_tier').sample(n=...)</code> com <code>random_state</code> fixo pra reprodutibilidade.</p>
+    <span class="tag tag-criteria">🔧 Critério</span>
+    <p>Rodar <code>python scripts/eval_explainer.py --n 21 --seed 42</code> gera um arquivo em <code>reports/</code> com os campos acima. Em uma run limpa com prompt com guardrails: <code>pass_rate_overall &gt;= 0.95</code> e exit 0. Pra validar o gate: remove a restrição "não invente números" do prompt em <code>decision_explainer.py</code>, roda o eval, confirma que <code>pass_rate_grounded</code> cai e exit code vira 1.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import argparse, json, re, sys, time
+from datetime import datetime
+from pathlib import Path
+import numpy as np
+import pandas as pd
+from src.decision_explainer import explain_decision
+
+# Preço Haiku 4.5 (ajustar conforme tabela vigente)
+PRICE_IN_PER_MTOK  = 1.00   # USD / milhão tokens input
+PRICE_OUT_PER_MTOK = 5.00   # USD / milhão tokens output
+
+FORBIDDEN = ["cep", "endereço", "raça", "gênero", "estado civil", "religião"]
+NUM_RE = re.compile(r"\d+[.,]?\d*")
+
+
+def stratified_sample(mart_path: str, n: int, seed: int) -> list[int]:
+    df = pd.read_parquet(mart_path)
+    # Proporção aproximada da carteira
+    props = {"LOW": 0.70, "MEDIUM": 0.16, "HIGH": 0.14}
+    ids = []
+    for tier, p in props.items():
+        k = max(1, round(n * p))
+        sample = df[df["risk_tier"] == tier].sample(n=k, random_state=seed)
+        ids.extend(sample.index.tolist())
+    return ids[:n]
+
+
+def check_grounded(narrative: str, key_factors: list[dict]) -> tuple[bool, str]:
+    valid_nums = set()
+    for f in key_factors:
+        valid_nums.add(f"{f['value']:.2f}")
+        valid_nums.add(str(int(f['value'])) if f['value'].is_integer() else f"{f['value']:.2f}")
+        valid_nums.add(f"{f['median']:.2f}")
+    nums_in_text = NUM_RE.findall(narrative)
+    for n in nums_in_text:
+        n_norm = n.replace(",", ".")
+        try:
+            val = float(n_norm)
+            if not any(abs(val - float(v.replace(",", "."))) < 0.01 for v in valid_nums):
+                return False, f"número '{n}' não veio do contexto"
+        except ValueError:
+            continue
+    return True, ""
+
+
+def check_aligned(result: dict) -> tuple[bool, str]:
+    if result["decision"] != "NEGADO":
+        return True, ""
+    has_risk_driver = any(
+        f["direction"] == "alto_aumenta_risco" for f in result["key_factors"]
+    )
+    return (True, "") if has_risk_driver else (False, "NEGADO sem fator de risco no top-3")
+
+
+def check_forbidden(narrative: str) -> tuple[bool, str]:
+    low = narrative.lower()
+    hit = next((w for w in FORBIDDEN if w in low), None)
+    return (False, f"menciona '{hit}'") if hit else (True, "")
+
+
+def run_eval(mart_path: str, n: int, seed: int) -> dict:
+    ids = stratified_sample(mart_path, n, seed)
+    results, latencies, violations = [], [], []
+    cost_in = cost_out = 0
+    pass_grounded = pass_aligned = pass_forbidden = 0
+    pass_all = 0
+
+    for app_id in ids:
+        t0 = time.perf_counter()
+        r = explain_decision(app_id, mart_path)
+        latencies.append((time.perf_counter() - t0) * 1000)
+
+        usage = r.get("_usage", {})
+        cost_in  += usage.get("input_tokens", 0)
+        cost_out += usage.get("output_tokens", 0)
+
+        ok_g, msg_g = check_grounded(r["narrative"], r["key_factors"])
+        ok_a, msg_a = check_aligned(r)
+        ok_f, msg_f = check_forbidden(r["narrative"])
+
+        pass_grounded  += ok_g
+        pass_aligned   += ok_a
+        pass_forbidden += ok_f
+        pass_all       += (ok_g and ok_a and ok_f)
+
+        for ok, check, msg in [(ok_g,"grounded",msg_g), (ok_a,"aligned",msg_a), (ok_f,"forbidden",msg_f)]:
+            if not ok:
+                violations.append({"application_id": app_id, "check": check, "detail": msg})
+
+    total = len(ids)
+    return {
+        "n_samples": total,
+        "seed": seed,
+        "pass_rate_grounded":  round(pass_grounded / total, 4),
+        "pass_rate_aligned":   round(pass_aligned / total, 4),
+        "pass_rate_forbidden": round(pass_forbidden / total, 4),
+        "pass_rate_overall":   round(pass_all / total, 4),
+        "latency_p95_ms":      round(float(np.percentile(latencies, 95)), 2),
+        "cost_usd_total":      round(cost_in * PRICE_IN_PER_MTOK / 1e6
+                                    + cost_out * PRICE_OUT_PER_MTOK / 1e6, 6),
+        "violations": violations,
+        "generated_at": datetime.now().isoformat(),
+    }
+
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mart", default="data/marts/mart_credit_features.parquet")
+    ap.add_argument("--n", type=int, default=21)
+    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--threshold", type=float, default=0.95)
+    args = ap.parse_args()
+
+    report = run_eval(args.mart, args.n, args.seed)
+    out = Path("reports") / f"eval_explainer_{datetime.now():%Y%m%d_%H%M%S}.json"
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(json.dumps(report, indent=2, ensure_ascii=False))
+    print(json.dumps({k: v for k, v in report.items() if k != "violations"}, indent=2))
+    print(f"Relatório completo: {out}")
+
+    if report["pass_rate_overall"] < args.threshold:
+        print(f"❌ FAIL: pass_rate_overall {report['pass_rate_overall']} < threshold {args.threshold}")
+        sys.exit(1)
+    print(f"✅ PASS")</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio B.4 — Demo ao vivo do endpoint explicável <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivos: <code>scripts/demo_bonus_warmup.sh</code> + <code>demo-bonus.md</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="bonus" data-challenge="B.4" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> URL pública + 3 <code>application_id</code>s pré-validados (1 por tier) + último <code>reports/eval_explainer_rule_*.json</code></span>
+      <span class="io-badge">📤 <strong>Saída:</strong> script de warm-up + runbook de 5 min focado no explicador + ponto alto com o eval report</span>
+      <span class="io-badge">🔗 <strong>Complementa:</strong> o runbook <code>demo.md</code> da Fase 4.5 (sistema sem LLM) — aqui entra o diferencial do LLM com guardrails</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Dois artefatos que transformam o <code>/explain-decision</code> em demo de 5 minutos que não falha — seja em validação pessoal pós-deploy, showcase para mentor/colaborador, portfólio ou entrevista técnica:</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong><code>scripts/demo_bonus_warmup.sh</code>:</strong> roda <code>/health</code>, dispara <code>/explain-decision/rule/{id}</code> para os 3 ids pré-validados (pré-aquece o LLM client + popula o cache por chave do B.2), e abre Swagger, GitHub Actions e o <strong>último eval report em <code>reports/</code></strong> no editor. Na segunda chamada ao vivo, a resposta volta em ~30ms com <code>cached: true</code> — quem estiver assistindo vê isso.</li>
+      <li><strong><code>demo-bonus.md</code> na raiz:</strong> runbook de 5 minutos com 3 beats específicos do LLM — (1) explicação de uma decisão APROVADA, (2) explicação de uma NEGADA (mais impactante — mostra os fatores de risco narrados em PT-BR), (3) ponto alto abrindo o <code>eval_explainer_rule_*.json</code> e falando a linha sobre "confiança em LLM não vem de boa fé, vem do relatório que roda no CI". Inclui respostas para 3 perguntas LLM-específicas.</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que o eval report é o ponto alto da demo?</strong> Plugar uma API LLM num endpoint e mostrar "olha, gerei texto" é fácil. O que separa é você abrir um JSON que diz <code>pass_rate_grounded: 1.0</code>, <code>cost_usd_total: 0.0043</code>, <code>latency_p95_ms: 1847</code> em 21 amostras estratificadas e dizer <em>"esse relatório roda como gate de CI. Se grounded-ness cair de 95%, o PR não passa"</em>. Em 30 segundos você demonstra três coisas de uma vez: que sabe o que é alucinação, que sabe o que é custo, e que sabe o que é regressão de prompt. Nenhum destes vem da API em si — vem do B.3 que você construiu.
+    </div>
+    <span class="tag tag-hint">💡 Dica</span>
+    <p>Pra escolher os 3 ids pré-validados, roda o eval do B.3 uma vez com <code>--n 30</code>, varre o JSON e escolhe 1 de cada tier cuja narrativa você revisou e aprovou manualmente — guarda esses 3 ids como constantes. Nunca digite id "qualquer" ao vivo: tier HIGH com dado estranho pode gerar narrativa que soa mal no momento da apresentação. Pro ponto alto, abre o JSON em editor com JSON fold colapsado — quando expande o campo <code>violations: []</code> vazio, o ponto fica visível sozinho.</p>
+    <span class="tag tag-criteria">🔧 Critério</span>
+    <p>(a) <code>bash scripts/demo_bonus_warmup.sh &lt;URL&gt;</code> termina em &lt;10s, as 3 explicações são JSON válido com <code>narrative</code> preenchido, o eval report mais recente abre no editor. (b) Imediatamente após o warm-up, refazendo curl em qualquer dos 3 ids, <code>cached: true</code> e latência &lt;100ms. (c) Cronometrando a execução do <code>demo-bonus.md</code> em voz alta: sub 5 minutos, incluindo o ponto alto do eval report. (d) Ensaia com alguém que não conhece o projeto e pergunta se entendeu a separação extrator/narrador — se a resposta for "ah, o LLM não pode inventar número", o runbook tá claro.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-bash">#!/usr/bin/env bash
+# scripts/demo_bonus_warmup.sh — aquece o endpoint LLM 60s antes de apresentar
+set -euo pipefail
+
+URL="${1:-https://credit-api-xxxxx-uc.a.run.app}"
+
+# Ids pré-validados — rodou eval, revisou narrativa, aprovou
+ID_APROVADO=1234    # tier LOW — explicação curta e positiva
+ID_LIMITE=5678      # tier MEDIUM — explicação balanceada
+ID_NEGADO=9012      # tier HIGH — mostra fatores de risco narrados
+
+echo "▶ Warm-up do endpoint explicável: $URL"
+echo ""
+echo "1/3 · /health"
+curl -s "$URL/health" | jq .
+echo ""
+for tier_label in "APROVADO:$ID_APROVADO" "LIMITE:$ID_LIMITE" "NEGADO:$ID_NEGADO"; do
+  label="${tier_label%%:*}"; id="${tier_label##*:}"
+  echo "▶ Pré-aquecendo /explain-decision/$id ($label)"
+  curl -s "$URL/explain-decision/rule/$id" | jq '{decision, risk_tier, narrative}'
+  echo ""
+done
+
+# Abre tabs da demo
+LATEST_EVAL=$(ls -t reports/eval_explainer_rule_*.json 2>/dev/null | head -1)
+if command -v open &gt;/dev/null; then
+  open "$URL/docs"
+  open "https://github.com/SEU_USER/credit-intelligence-pipeline/actions"
+  [ -n "$LATEST_EVAL" ] &amp;&amp; code "$LATEST_EVAL"
+fi
+
+echo "✅ Cache por chave populado. Segunda chamada virá em &lt;100ms com cached:true."</code></pre>
+      <pre><code class="language-markdown"># demo-bonus.md — Roteiro do endpoint explicável (5 min)
+
+> Pré-requisito: `demo.md` da Fase 4 já ensaiado. Este aqui é o diferencial
+> que você encaixa DEPOIS do beat 3 daquele runbook.
+
+## Setup (60s antes da call)
+```bash
+./scripts/demo_bonus_warmup.sh https://credit-api-xxxxx-uc.a.run.app
+```
+Isso pré-aquece 3 ids (1 por tier) e abre: Swagger, Actions, e o último
+`reports/eval_explainer_rule_*.json` no VS Code.
+
+## Roteiro (5 min, 3 beats)
+
+### Beat 1 · Decisão APROVADA (1 min)
+- Swagger → `/explain-decision/rule/{id}` → `1234` → Execute.
+- Aponta: `decision: APROVADO`, `risk_tier: LOW`, e a `narrative` em PT-BR
+  citando os 3 fatores.
+- Fala: "O tomador recebe decisão em segundos. Se o SaaS parceiro for
+  mostrar numa tela, essa narrativa cumpre Res. 4.935/Bacen."
+
+### Beat 2 · Decisão NEGADA (1.5 min)
+- Swagger → `/explain-decision/9012` → Execute.
+- Aponta: os `key_factors` têm `direction: alto_aumenta_risco`, e a
+  `narrative` cita os números EXATOS (aponta com o cursor).
+- Fala: "O LLM não pode inventar. O extrator determinístico escolheu os
+  fatores, o LLM só narra. É isso que faz o compliance aprovar."
+
+### Beat 3 · Killer — Eval como gate de CI (2 min)
+- Alterna pra aba do VS Code com `reports/eval_explainer_2026XXXX.json`
+- Aponta os campos na ordem:
+  - `pass_rate_grounded: 1.0` → "nenhuma alucinação numérica em 21 amostras"
+  - `pass_rate_forbidden: 1.0` → "nenhuma menção a CEP, raça, gênero"
+  - `cost_usd_total: 0.0043` → "0.2 centavos por decisão"
+  - `latency_p95_ms: 1847` → "sub 2 segundos"
+- Fala: "Confiança em LLM em produção não vem de boa fé. Vem desse
+  relatório. Ele roda no CI — se grounded-ness cai de 95%, o PR não passa."
+
+## Perguntas prontas (específicas do LLM)
+
+**"Como você sabe que o LLM não tá inventando número?"**
+Abre o eval report, aponta `pass_rate_grounded`. O check é regex: todo
+número na narrativa precisa existir entre os `value`/`median` dos
+`key_factors`. 21 amostras, threshold de 95%, gate de CI.
+
+**"Quanto isso custa?"**
+`cost_usd_total: 0.0043` para 21 decisões — 0.2 centavos por chamada.
+Haiku 4.5 pra LOW/MEDIUM, Sonnet só pra HIGH (variação). O `_usage` no
+response carrega input/output tokens pra dashboard de custo.
+
+**"E se a Anthropic cair?"**
+Hoje o endpoint falha. Próximo passo: fallback retornando `decision` +
+`key_factors` sem `narrative` — o extrator determinístico já é uma
+explicação estruturada, só perde o wrapping em linguagem natural.</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="variations">
+  <div class="variations-title">⚡ Variações deliberadas — escreva sua previsão antes de testar</div>
+  <ul class="checklist">
+    <li><strong>Teste de alucinação manual:</strong> dentro de <code>_build_prompt</code>, remove a restrição "Não invente números" e passa um <code>application_id</code> com <code>monthly_income</code> extremo. O LLM arredonda, inventa comparações, ou respeita o valor? O que isso te diz sobre confiar em prompting sem eval automatizado?</li>
+    <li><strong>Haiku vs Sonnet condicional:</strong> usa Haiku para tier LOW/MEDIUM e Sonnet só para HIGH (decisão de negativa é a mais sensível). Mede latência e custo por tier. O que justifica a escolha — qualidade da redação ou fidelidade aos fatos?</li>
+    <li><strong>Guardrails explícitos na resposta:</strong> adiciona um campo <code>guardrails_applied: list[str]</code> listando as restrições do prompt. Útil quando o time de compliance perguntar "o que impede esse LLM de mencionar CEP?"</li>
+    <li><strong>Duas audiências, um mesmo contexto:</strong> adiciona parâmetro <code>?audience=tomador|analista</code>. Tomador recebe linguagem acessível em 2 frases; analista recebe jargão técnico com referência aos thresholds da política. Qual prompt muda, qual não?</li>
+    <li><strong>Cache distribuído:</strong> quando o Cloud Run escala pra 5 instâncias, cada uma tem seu cache local. Qual é o cenário concreto em que isso vira problema? (dica: pense em reentreino do modelo + invalidação seletiva)</li>
+  </ul>
+</div>
+
+<div class="blank-test">
+  <strong>Teste da página em branco:</strong> descreve em voz alta para alguém do time de risco por que a separação entre <em>extrator determinístico</em> e <em>narrador LLM</em> é o que torna esse endpoint auditável. Se você consegue explicar em 30 segundos por que não dá pra passar o mart inteiro pro LLM e pedir "explica essa decisão" — você entendeu o núcleo.
+</div>
+
+<div class="page-nav">
+  <a class="btn-nav" href="fase-4.html">← Fase 4: Observabilidade + GCP</a>
+  <a class="btn-nav disabled">Hub completo ✓</a>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>

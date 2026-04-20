@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fase 3 — Orquestração + API</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-theme">
+</head>
+<body data-page-key="recall_fase3">
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html">Hub</a>
+      <a href="fase-1.html">Fase 1</a>
+      <a href="fase-2.html">Fase 2</a>
+      <a href="fase-3.html" class="active">Fase 3</a>
+      <a href="fase-4.html">Fase 4</a>
+      <a href="bonus-fase4.html">Bônus F4 ✨</a>
+      <a href="fase-5.html">Fase 5</a>
+      <a href="bonus-fase5.html">Bônus F5 ✨</a>
+      <a href="docs.html">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()"><span id="theme-icon">🌙</span> <span id="theme-label">Dark</span></button>
+  </div>
+</div>
+<div class="container">
+
+<div class="phase-header">
+  <div class="phase-label">Fase 3 · Orquestração + API</div>
+  <div class="phase-question">"Como você transforma um script que roda uma vez em um pipeline confiável que executa automaticamente — e como expõe os dados para outros sistemas consumirem?"</div>
+</div>
+
+<p><strong>Entrega:</strong> flow Prefect rodando localmente + API FastAPI com 2 endpoints + Dockerfile funcional.</p>
+<p><strong>Pré-requisito:</strong> funções de <code>src/ingestion.py</code> e <code>src/transform.py</code> das Fases 1 e 2, e <code>tests/test_pipeline.py</code> passando.</p>
+
+<hr>
+
+<div class="phase-flow">
+  <div class="phase-flow-title">🔗 Como os desafios se conectam nesta fase</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">3.1 · pipeline/flow.py</div>
+      <div class="flow-step-label">Prefect Flow</div>
+      <div class="flow-step-out">Orquestra todas as funções das Fases 1 e 2 como tasks encadeadas com tratamento de falha</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">3.2 · api/main.py</div>
+      <div class="flow-step-label">FastAPI</div>
+      <div class="flow-step-out">Serve o Parquet gerado pelo pipeline como endpoints REST para outros sistemas consumirem</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">3.3 · Dockerfile</div>
+      <div class="flow-step-label">Containerização</div>
+      <div class="flow-step-out">Empacota a API + dados em imagem portável — base para o deploy no Cloud Run da Fase 4</div>
+    </div>
+  </div>
+</div>
+
+<div class="connect-note">
+  <strong>Por que Prefect e não rodar os scripts na sequência?</strong> Um script sequencial falha silenciosamente — você não sabe em qual etapa foi. O Prefect dá visibilidade: cada task tem status, log e tempo de execução. Se a task "Fetch API" falhar, o flow para ali, loga o erro, e você sabe exatamente onde investigar. É a diferença entre um processo operacional e um pipeline monitorável.
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 3.1 — Orquestrar com Prefect <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>pipeline/flow.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase3" data-challenge="3.1" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> funções de src/ingestion.py + src/transform.py + tests/</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> flow executável com todas as etapas em sequência</span>
+      <span class="io-badge">🔗 <strong>Base para:</strong> logging e monitoramento da Fase 4</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete em <code>pipeline/flow.py</code> um orquestrador Prefect com 7 tasks em ordem fixa. Você não reescreve lógica — importa as funções das Fases 1 e 2 e as decora com <code>@task</code>.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Ordem obrigatória:</strong> <code>ingest_csv</code> → <code>validate</code> → <code>fetch_api</code> → <code>merge</code> → <code>run_staging</code> → <code>run_mart</code> → <code>run_tests</code> — cada função importada ganha <code>@task(name="Nome Legível")</code></li>
+      <li><strong><code>@flow</code>:</strong> <code>@flow(name="Credit Intelligence Pipeline")</code> encadeia as tasks passando retornos como argumentos — <code>df = ingest_csv()</code> alimenta <code>validate(df)</code> diretamente</li>
+      <li><strong><code>run_tests</code>:</strong> <code>subprocess.run(['pytest', 'tests/', '-v'], capture_output=True, text=True)</code> — lança <code>Exception</code> se <code>returncode != 0</code>; o flow para no ponto exato da falha</li>
+    </ul>
+    <div class="connect-note">
+      <strong>O que você está fazendo aqui:</strong> as funções que você escreveu nas Fases 1 e 2 (<code>validate_dataframe</code>, <code>merge_sources</code>, <code>run_model</code>) são importadas e decoradas com <code>@task</code>. Você não reescreve a lógica — só orquestra. Esse é o princípio de separação de responsabilidades: a lógica fica nos módulos, o orquestrador só define a ordem.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Importar e decorar funções existentes com @task</span>
+        </div>
+        <div class="step-body">
+          <p>Importe as funções das Fases 1 e 2 e envolva cada uma com <code>@task(name="Nome Legível")</code> — não reescreva a lógica, só decore. O nome aparece nos logs do Prefect. <strong>Antes de escrever:</strong> o que muda no comportamento de uma função ao adicionar <code>@task</code>? (ela vira um objeto que o Prefect monitora, loga e pode retentar)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Criar o @flow encadeando as tasks em sequência</span>
+        </div>
+        <div class="step-body">
+          <p>Decore a função principal com <code>@flow(name="Credit Intelligence Pipeline")</code> e chame as tasks na ordem: <code>df = ingest_csv()</code>, <code>validate(df)</code>, <code>fetch_api()</code>, <code>merge()</code>, <code>run_staging()</code>, <code>run_mart()</code>, <code>run_tests()</code>. Prefect passa o retorno de uma task como argumento para a próxima automaticamente. <strong>Antes de rodar:</strong> o que acontece se <code>ingest_csv()</code> lançar exceção? O flow para ali ou tenta rodar <code>validate()</code> mesmo assim?</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Testar falha explícita apagando um arquivo</span>
+        </div>
+        <div class="step-body">
+          <p>Apague <code>data/raw/cs-training.csv</code> de propósito e rode <code>python pipeline/flow.py</code>. Você deve ver o flow parar na task "Ingest CSV" com o erro exato — não em algum lugar aleatório no final. Se isso acontecer, o orquestrador está funcionando. Depois restaure o arquivo. <strong>Antes de testar:</strong> em qual task você espera que o erro apareça se apagar o JSON da API?</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete os decoradores Prefect sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>from prefect import <input class="code-blank" data-answer="flow" placeholder="???" size="6">, <input class="code-blank" data-answer="task" placeholder="???" size="6">
+import pandas as pd, subprocess, json
+from pathlib import Path
+from src.ingestion import validate_dataframe, fetch_from_api, merge_sources
+from src.transform import run_model
+
+@<input class="code-blank" data-answer="task" placeholder="???" size="6">(name="Ingest CSV")
+def ingest_csv():
+    return pd.read_csv('data/raw/cs-training.csv', index_col=0)
+
+@task(name="Validate")
+def validate(df):
+    return <input class="code-blank" data-answer="validate_dataframe" placeholder="???" size="20">(df)
+
+@task(name="Fetch API")
+def fetch_api():
+    data = <input class="code-blank" data-answer="fetch_from_api" placeholder="???" size="16">(5000)
+    with open('data/raw/bureau_api.json', 'w') as f:
+        json.dump(data, f)
+
+@task(name="Merge")
+def merge():
+    return <input class="code-blank" data-answer="merge_sources" placeholder="???" size="15">(
+        'data/raw/cs-training.csv', 'data/raw/bureau_api.json')
+
+@task(name="Run Staging")
+def run_staging():
+    run_model('<input class="code-blank" data-answer="stg_credit_applications" placeholder="???" size="24">', 'data/staging/')
+
+@task(name="Run Mart")
+def run_mart():
+    run_model('<input class="code-blank" data-answer="mart_credit_features" placeholder="???" size="21">', 'data/marts/')
+
+@task(name="Run Tests")
+def run_tests():
+    r = subprocess.run(['pytest', 'tests/', '-v'], capture_output=True, text=True)
+    if r.<input class="code-blank" data-answer="returncode" placeholder="???" size="12"> != 0:
+        raise Exception("Testes falharam — pipeline abortado")
+
+@<input class="code-blank" data-answer="flow" placeholder="???" size="6">(name="Credit Intelligence Pipeline")
+def credit_pipeline():
+    df = ingest_csv()
+    validate(<input class="code-blank" data-answer="df" placeholder="???" size="4">)
+    fetch_api()
+    merge()
+    run_staging()
+    run_mart()
+    run_tests()
+
+if __name__ == "__main__":
+    credit_pipeline()</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Rode <code>python pipeline/flow.py</code>. Depois teste a falha explícita: <code>mv data/raw/cs-training.csv /tmp/ && python pipeline/flow.py</code>. Observe em qual task o erro aparece. Restaure o arquivo: <code>mv /tmp/cs-training.csv data/raw/</code>.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Flow executa todas as tasks em sequência com o nome de cada uma visível no terminal. Ao remover o CSV, o erro aparece imediatamente na task "Ingest CSV" — não em alguma task posterior. O traceback aponta o arquivo ausente, não uma exceção ambígua de pandas ou DuckDB.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">from prefect import flow, task
+import sys, subprocess, json, pandas as pd
+from pathlib import Path
+sys.path.append('.')
+from src.ingestion import validate_dataframe, fetch_from_api, merge_sources
+from src.transform import run_model
+
+@task(name="Ingest CSV")
+def ingest_csv():
+    df = pd.read_csv('data/raw/cs-training.csv', index_col=0)
+    print(f"CSV: {len(df)} registros")
+    return df
+
+@task(name="Validate")
+def validate(df):
+    report = validate_dataframe(df)
+    print(f"Qualidade: {report}")
+    return report
+
+@task(name="Fetch API")
+def fetch_api():
+    data = fetch_from_api(5000)
+    Path('data/raw').mkdir(parents=True, exist_ok=True)
+    with open('data/raw/bureau_api.json','w') as f:
+        json.dump(data, f)
+
+@task(name="Merge")
+def merge():
+    return merge_sources('data/raw/cs-training.csv','data/raw/bureau_api.json')
+
+@task(name="Run Staging")
+def run_staging():
+    run_model('stg_credit_applications','data/staging/')
+
+@task(name="Run Mart")
+def run_mart():
+    run_model('mart_credit_features','data/marts/')
+
+@task(name="Run Tests")
+def run_tests():
+    r = subprocess.run(['pytest','tests/','-v'], capture_output=True, text=True)
+    print(r.stdout)
+    if r.returncode != 0:
+        raise Exception("Testes falharam — pipeline abortado")
+
+@flow(name="Credit Intelligence Pipeline")
+def credit_pipeline():
+    df = ingest_csv()
+    validate(df)
+    fetch_api()
+    merge()
+    run_staging()
+    run_mart()
+    run_tests()
+
+if __name__ == "__main__":
+    credit_pipeline()</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 3.2 — API FastAPI <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>api/main.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase3" data-challenge="3.2" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> data/marts/mart_credit_features.parquet (gerado pelo flow)</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> endpoints REST em localhost:8000</span>
+      <span class="io-badge">🔗 <strong>Containerizada por:</strong> Dockerfile do 3.3</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete em <code>api/main.py</code> uma FastAPI com dois endpoints. O Parquet é carregado no nível do módulo — uma vez no startup, não a cada request.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Carregamento:</strong> <code>df = pd.read_parquet('data/marts/mart_credit_features.parquet')</code> no topo do arquivo, fora de qualquer função — ler 150k linhas por request adicionaria ~200ms de latência desnecessária</li>
+      <li><strong><code>GET /health</code>:</strong> retorna <code>{"status": "ok", "timestamp": datetime.now().isoformat(), "records": len(df)}</code></li>
+      <li><strong><code>GET /risk-summary</code>:</strong> retorna <code>default_rate_pct</code> (<code>mean * 100</code>, round 2), <code>risk_tier_distribution_pct</code> (<code>value_counts(normalize=True).mul(100).round(2).to_dict()</code>), e <code>median_income_by_tier</code> (<code>groupby('risk_tier')['monthly_income'].median().round(2).to_dict()</code>)</li>
+      <li><strong>Validação:</strong> <code>default_rate_pct</code> deve bater com o benchmark do DuckDB 2.1 (margem de ±0.1% por arredondamento) — se divergir mais, há um bug na lógica ou nos dados</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Carrega o Parquet uma vez, não a cada request:</strong> o <code>df = pd.read_parquet(...)</code> fica no nível do módulo — executado quando a API sobe, não a cada chamada. Ler 150k linhas a cada request adicionaria ~200ms de latência desnecessária. Variável global é o padrão aqui.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Carregar o Parquet no nível do módulo</span>
+        </div>
+        <div class="step-body">
+          <p>Escreva <code>df = pd.read_parquet('data/marts/mart_credit_features.parquet')</code> fora de qualquer função — no nível do módulo, executado uma vez quando a API sobe. Ler 150k linhas a cada request adicionaria ~200ms de latência desnecessária. <strong>Antes de escrever:</strong> o que acontece se o Parquet não existir quando a API sobe? A API cai imediatamente — que é o comportamento correto (fail fast).</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Criar os dois endpoints com @app.get</span>
+        </div>
+        <div class="step-body">
+          <p>Use <code>@app.get("/health")</code> retornando <code>{"status": "ok", "timestamp": datetime.now().isoformat(), "records": len(df)}</code>. Para <code>@app.get("/risk-summary")</code>, retorne um dict com as agregações — o FastAPI serializa o dict para JSON automaticamente. <strong>Antes de escrever:</strong> por que retornar <code>len(df)</code> no <code>/health</code>? (serve como sanity check — 0 registros significa que o Parquet está vazio)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Construir agregações para /risk-summary</span>
+        </div>
+        <div class="step-body">
+          <p>Para a distribuição de <code>risk_tier</code>: <code>df['risk_tier'].value_counts(normalize=True).mul(100).round(2).to_dict()</code>. Para renda por tier: <code>df.groupby('risk_tier')['monthly_income'].median().round(2).to_dict()</code>. Compare os números com o que você calculou no DuckDB no 2.1 — devem bater. <strong>Antes de rodar:</strong> o que <code>normalize=True</code> faz em <code>value_counts()</code>?</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete a API FastAPI sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>from fastapi import FastAPI
+from datetime import datetime
+import pandas as pd
+
+app = FastAPI(title="Credit Intelligence API")
+
+# Carrega UMA VEZ quando a API sobe
+df = pd.<input class="code-blank" data-answer="read_parquet" placeholder="???" size="13">('data/marts/mart_credit_features.parquet')
+
+@app.<input class="code-blank" data-answer="get" placeholder="???" size="5">("/health")
+def health():
+    return {
+        "status": "ok",
+        "timestamp": datetime.<input class="code-blank" data-answer="now" placeholder="???" size="5">().<input class="code-blank" data-answer="isoformat" placeholder="???" size="11">(),
+        "records": <input class="code-blank" data-answer="len(df)" placeholder="???" size="9">
+    }
+
+@app.get("/risk-summary")
+def risk_summary():
+    return {
+        "default_rate_pct": round(df['defaulted'].<input class="code-blank" data-answer="mean" placeholder="???" size="6">() * 100, 2),
+        "risk_tier_distribution_pct": (
+            df['risk_tier'].<input class="code-blank" data-answer="value_counts" placeholder="???" size="14">(normalize=True)
+            .mul(100).round(2).<input class="code-blank" data-answer="to_dict" placeholder="???" size="9">()
+        ),
+        "median_income_by_tier": (
+            df.<input class="code-blank" data-answer="groupby" placeholder="???" size="9">('risk_tier')['monthly_income']
+            .median().round(2).to_dict()
+        )
+    }</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Suba a API: <code>uvicorn api.main:app --reload</code>. Em outro terminal: <code>curl localhost:8000/health</code> e <code>curl localhost:8000/risk-summary</code>. Compare o <code>default_rate_pct</code> retornado com o valor que você calculou no DuckDB no desafio 2.1.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p><code>/health</code> retorna <code>{"status": "ok", "timestamp": "...", "records": N}</code> com N maior que zero. <code>/risk-summary</code> retorna <code>default_rate_pct</code> e distribuição de <code>risk_tier</code> — os valores coincidem com os benchmarks do DuckDB (margem de ±0.1% por arredondamento). Se divergirem mais, há um bug na lógica de agregação ou nos dados da mart.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">from fastapi import FastAPI
+from datetime import datetime
+import pandas as pd
+
+app = FastAPI(title="Credit Intelligence API")
+
+# Carrega uma vez quando a API sobe — não a cada request
+df = pd.read_parquet('data/marts/mart_credit_features.parquet')
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "timestamp": datetime.now().isoformat(),
+        "records": len(df)
+    }
+
+@app.get("/risk-summary")
+def risk_summary():
+    return {
+        "total_records": len(df),
+        "default_rate_pct": round(df['defaulted'].mean()*100, 2),
+        "risk_tier_distribution_pct": (
+            df['risk_tier'].value_counts(normalize=True).mul(100).round(2).to_dict()
+        ),
+        "median_income_by_tier": (
+            df.groupby('risk_tier')['monthly_income'].median().round(2).to_dict()
+        )
+    }</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 3.3 — Dockerizar <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>Dockerfile</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase3" data-challenge="3.3" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> api/, src/, data/marts/, requirements.txt</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> imagem Docker com a API rodando na porta 8000</span>
+      <span class="io-badge">🔗 <strong>Publicada no:</strong> GCP Artifact Registry na Fase 4</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Projete um <code>Dockerfile</code> baseado em <code>python:3.11-slim</code> que empacota a API com os dados Parquet embutidos. A ordem das instruções é deliberada — maximiza o cache de layers do Docker.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Dependências primeiro:</strong> <code>COPY requirements.txt .</code> + <code>RUN pip install --no-cache-dir -r requirements.txt</code> antes de qualquer código — se só o código mudar, o Docker reutiliza o layer do pip sem reinstalar</li>
+      <li><strong>Código e dados:</strong> <code>COPY api/ ./api/</code>, <code>COPY src/ ./src/</code>, <code>COPY data/marts/ ./data/marts/</code> — sem o terceiro, o Parquet não existe no container e a API falha no startup</li>
+      <li><strong>CMD:</strong> <code>["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]</code> — sem <code>0.0.0.0</code>, o servidor escuta só em <code>localhost</code> dentro do container e o <code>-p 8000:8000</code> não entrega tráfego</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que incluir os dados na imagem?</strong> A API lê o Parquet no startup. Em produção você teria um volume ou storage bucket, mas para este projeto incluir o Parquet na imagem mantém tudo autocontido — você consegue rodar com um único <code>docker run</code> sem configuração adicional. O tradeoff é que a imagem fica maior.
+    </div>
+    <details class="steps-toggle">
+    <summary>📋 Guia passo a passo — abra só se travar</summary>
+    <div class="steps">
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 1 de 3</span>
+          <span class="step-title">Definir base image e instalar dependências</span>
+        </div>
+        <div class="step-body">
+          <p>Comece com <code>FROM python:3.11-slim</code> — slim é menor que a imagem completa pois não tem compiladores e ferramentas de build. Copie e instale dependências antes do código: <code>COPY requirements.txt .</code> então <code>RUN pip install --no-cache-dir -r requirements.txt</code>. <strong>Antes de escrever:</strong> por que copiar o <code>requirements.txt</code> antes do código da aplicação? (para aproveitar o cache de layers do Docker — se o código mudar mas as dependências não, o pip não roda de novo)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 2 de 3</span>
+          <span class="step-title">Copiar código e dados para a imagem</span>
+        </div>
+        <div class="step-body">
+          <p>Copie <code>COPY api/ ./api/</code>, <code>COPY src/ ./src/</code>, e <code>COPY data/marts/ ./data/marts/</code>. Os dados Parquet ficam dentro da imagem — a API lê no startup sem precisar de volume ou storage externo. <strong>Antes de escrever:</strong> qual o tradeoff de incluir dados na imagem? (imagem maior, mas zero configuração para rodar — correto para portfólio)</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-header">
+          <span class="step-num">Passo 3 de 3</span>
+          <span class="step-title">Expor porta e definir CMD</span>
+        </div>
+        <div class="step-body">
+          <p>Adicione <code>EXPOSE 8000</code> (documentação) e <code>CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]</code>. O <code>--host 0.0.0.0</code> é obrigatório em container — sem ele a API escuta só em localhost dentro do container e não recebe tráfego externo. <strong>Antes de rodar:</strong> teste localmente com <code>docker build -t credit-api . && docker run -p 8000:8000 credit-api</code> antes de avançar para o Cloud Run.</p>
+        </div>
+      </div>
+    </div>
+    </details>
+
+    <details class="recall-toggle">
+    <summary>⚡ Active Recall — preencha sem consultar</summary>
+    <div class="recall-block">
+      <div class="recall-header">
+        <span class="recall-title-text">⚡ Active Recall</span>
+        <span class="recall-subtitle">Complete o Dockerfile sem consultar</span>
+      </div>
+      <div class="recall-body">
+        <pre><code>FROM python:<input class="code-blank" data-answer="3.11-slim" placeholder="???" size="10">
+WORKDIR /app
+
+# Dependências primeiro (para cache de layers)
+COPY <input class="code-blank" data-answer="requirements.txt" placeholder="???" size="16"> .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Código e dados
+COPY <input class="code-blank" data-answer="api/" placeholder="???" size="6"> ./api/
+COPY src/ ./src/
+COPY <input class="code-blank" data-answer="data/marts/" placeholder="???" size="13"> ./data/marts/
+
+EXPOSE <input class="code-blank" data-answer="8000" placeholder="???" size="6">
+CMD ["uvicorn", "api.main:app",
+     "--host", "<input class="code-blank" data-answer="0.0.0.0" placeholder="???" size="9">",
+     "--port", "8000"]</code></pre>
+      </div>
+      <div class="recall-actions">
+        <button class="btn-recall btn-check" onclick="checkRecall(this)">Verificar</button>
+        <button class="btn-recall btn-reveal" onclick="revealRecall(this)">Revelar</button>
+        <button class="btn-recall btn-reset" onclick="resetRecall(this)">Limpar</button>
+        <span class="recall-feedback" style="display:none"></span>
+      </div>
+    </div>
+    </details>
+
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>Build e execute: <code>docker build -t credit-api . && docker run -p 8000:8000 credit-api</code>. Em outro terminal, de fora do container: <code>curl localhost:8000/health</code>. Para validar o cache de layers: faça uma mudança mínima no código e rode <code>docker build</code> novamente — observe que o passo de <code>pip install</code> é pulado.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p><code>curl localhost:8000/health</code> retorna <code>{"status": "ok", ...}</code> de fora do container. Build sem erros. Na segunda build após mudança só no código, o Docker reutiliza o layer de dependências — o log mostra <code>CACHED</code> no passo do pip. Se a API não responder, verifique se usou <code>--host 0.0.0.0</code> no <code>CMD</code>.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY api/ ./api/
+COPY src/ ./src/
+COPY data/marts/ ./data/marts/
+EXPOSE 8000
+CMD ["uvicorn","api.main:app","--host","0.0.0.0","--port","8000"]</code></pre>
+      <p style="font-size:0.83rem;color:var(--muted);margin-top:0.5rem;">O <code>requirements.txt</code> deve incluir no mínimo: <code>fastapi uvicorn pandas pyarrow</code>. Adiciona todas as outras dependências que você usou nas fases anteriores.</p>
+    </details>
+  </div>
+</div>
+
+<div class="variations">
+  <div class="variations-title">⚡ Variações deliberadas — escreva sua previsão antes de testar</div>
+  <ul class="checklist">
+    <li>Adiciona <code>GET /applicant/{id}</code>. O que acontece se o ID não existir? Como você retorna um 404 adequado em FastAPI?</li>
+    <li>Faz o flow falhar de propósito apagando <code>data/raw/cs-training.csv</code>. O erro aparece na task certa ou propaga silenciosamente?</li>
+    <li>Adiciona <code>?tier=HIGH</code> como query param no <code>/risk-summary</code>. Quanto muda a default rate entre HIGH e LOW?</li>
+  </ul>
+</div>
+
+<div class="blank-test">
+  <strong>Teste da página em branco:</strong> fecha tudo. Novo arquivo. Escreve um flow Prefect com 3 tasks encadeadas. Sem consultar.
+</div>
+
+<div class="page-nav">
+  <a class="btn-nav" href="fase-2.html">← Fase 2: SQL + Modelagem</a>
+  <a class="btn-nav" href="fase-4.html">Fase 4: Observabilidade →</a>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-docker.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>

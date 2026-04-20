@@ -1,0 +1,1930 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentação de Referência — Credit Pipeline</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-theme">
+<style>
+/* ── Code block com badge de linguagem ──────────────────────────── */
+.code-wrap {
+  position: relative; margin: 0.6rem 0;
+  border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden; background: var(--bg-code);
+}
+.code-wrap[data-lang]::before {
+  content: attr(data-lang);
+  display: block;
+  font-size: 0.68rem; font-weight: 700; font-family: monospace;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  padding: 0.2rem 0.75rem;
+  background: var(--bg-3); color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.code-wrap[data-lang="Python"]::before  { color: #2563eb; background: #dbeafe; }
+.code-wrap[data-lang="Shell"]::before   { color: #059669; background: #dcfce7; }
+.code-wrap[data-lang="SQL"]::before     { color: #9333ea; background: #f3e8ff; }
+.code-wrap[data-lang="Dockerfile"]::before { color: #d97706; background: #fef9c3; }
+.code-wrap[data-lang="YAML"]::before       { color: #dc2626; background: #fee2e2; }
+[data-theme="dark"] .code-wrap[data-lang="YAML"]::before { color: #fca5a5; background: #7f1d1d; }
+[data-theme="dark"] .code-wrap[data-lang="Python"]::before { color: #93c5fd; background: #1e3a5f; }
+[data-theme="dark"] .code-wrap[data-lang="Shell"]::before  { color: #4ade80; background: #14532d; }
+[data-theme="dark"] .code-wrap[data-lang="SQL"]::before    { color: #c084fc; background: #3b1f6b; }
+.code-wrap pre { padding: 0.75rem 1rem; }
+
+/* ── Assinatura de função ────────────────────────────────────────── */
+.sig {
+  font-family: monospace; font-size: 0.82rem;
+  background: var(--bg-code); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 6px 6px 0; padding: 0.5rem 0.85rem;
+  margin: 0.6rem 0; display: block; overflow-x: auto; color: var(--text);
+}
+.sig .param { color: #d97706; }
+.sig .default { color: var(--muted); }
+.sig .ret { color: #059669; font-style: italic; }
+
+/* ── TOC e layout ────────────────────────────────────────────────── */
+.doc-toc {
+  display: flex; flex-wrap: wrap; gap: 0.4rem; margin: 1.5rem 0 2rem;
+}
+.doc-toc a {
+  font-size: 0.78rem; font-weight: 600; padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border); border-radius: 20px;
+  color: var(--muted); text-decoration: none; background: var(--bg-2);
+  transition: all 0.15s;
+}
+.doc-toc a:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+
+.doc-section { margin: 2.5rem 0; }
+.doc-section-title {
+  font-size: 1rem; font-weight: 700; color: var(--text);
+  border-bottom: 2px solid var(--accent); padding-bottom: 0.4rem;
+  margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;
+}
+.lib-tag {
+  font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem;
+  border-radius: 4px; background: var(--accent-light); color: var(--accent);
+  font-family: monospace;
+}
+
+details.doc-entry {
+  border: 1px solid var(--border); border-radius: 8px;
+  margin-bottom: 0.5rem; overflow: hidden;
+}
+details.doc-entry > summary {
+  padding: 0.6rem 1rem; background: var(--bg-2);
+  cursor: pointer; font-size: 0.85rem; font-weight: 600;
+  color: var(--text); user-select: none; list-style: none;
+  display: flex; align-items: baseline; gap: 0.75rem; transition: background 0.15s;
+}
+details.doc-entry > summary::-webkit-details-marker { display: none; }
+details.doc-entry > summary::before {
+  content: '▶'; font-size: 0.6rem; color: var(--accent);
+  transition: transform 0.18s; flex-shrink: 0;
+}
+details.doc-entry[open] > summary::before { transform: rotate(90deg); }
+details.doc-entry[open] > summary { background: var(--bg-3); }
+details.doc-entry > summary code {
+  font-size: 0.8rem; color: var(--accent); font-weight: 700; background: none; padding: 0;
+}
+details.doc-entry > summary .summary-desc {
+  font-size: 0.78rem; font-weight: 400; color: var(--muted);
+}
+.doc-body {
+  padding: 1rem 1.25rem; border-top: 1px solid var(--border);
+  font-size: 0.875rem; line-height: 1.7;
+}
+.doc-body p { margin: 0.5rem 0; }
+.doc-body p:first-child { margin-top: 0; }
+.doc-params { margin: 0.75rem 0; }
+.doc-params dt { font-family: monospace; font-size: 0.8rem; font-weight: 700; color: var(--accent); margin-top: 0.5rem; }
+.doc-params dd { margin-left: 1rem; font-size: 0.82rem; color: var(--text); line-height: 1.6; }
+.doc-note    { background: var(--yellow); border-left: 3px solid #d97706; padding: 0.5rem 0.85rem; border-radius: 0 6px 6px 0; font-size: 0.82rem; color: var(--yellow-text); margin: 0.75rem 0; }
+.doc-warning { background: var(--red);    border-left: 3px solid #ef4444; padding: 0.5rem 0.85rem; border-radius: 0 6px 6px 0; font-size: 0.82rem; color: var(--red-text);    margin: 0.75rem 0; }
+.doc-tip     { background: var(--green);  border-left: 3px solid #22c55e; padding: 0.5rem 0.85rem; border-radius: 0 6px 6px 0; font-size: 0.82rem; color: var(--green-text);  margin: 0.75rem 0; }
+.doc-label   { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0.85rem 0 0.25rem; }
+
+/* ── Copy button ─────────────────────────────────────────────── */
+.copy-btn {
+  position: absolute; top: 0.22rem; right: 0.45rem;
+  font-size: 0.63rem; font-weight: 700; font-family: monospace;
+  padding: 0.12rem 0.45rem; border-radius: 4px;
+  border: 1px solid var(--border); background: var(--bg-3);
+  color: var(--muted); cursor: pointer; opacity: 0;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+  z-index: 2; line-height: 1.4;
+}
+.code-wrap:hover .copy-btn { opacity: 1; }
+.copy-btn.copied { color: #059669 !important; border-color: #059669 !important; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html">Hub</a>
+      <a href="fase-1.html">Fase 1</a>
+      <a href="fase-2.html">Fase 2</a>
+      <a href="fase-3.html">Fase 3</a>
+      <a href="fase-4.html">Fase 4</a>
+      <a href="bonus-fase4.html">Bônus F4 ✨</a>
+      <a href="fase-5.html">Fase 5</a>
+      <a href="bonus-fase5.html">Bônus F5 ✨</a>
+      <a href="docs.html" class="active">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()"><span id="theme-icon">🌙</span> <span id="theme-label">Dark</span></button>
+  </div>
+</div>
+<div class="container">
+
+<div class="phase-header">
+  <div class="phase-label">📚 Referência Rápida</div>
+  <div class="phase-question">Documentação das funções e bibliotecas do pipeline — abra só o que precisar, leia como funciona, aplique no contexto do desafio.</div>
+</div>
+
+<div class="doc-toc">
+  <a href="#python-core">Python Core</a>
+  <a href="#pandas">pandas</a>
+  <a href="#pathlib">pathlib</a>
+  <a href="#json">json</a>
+  <a href="#datetime">datetime</a>
+  <a href="#hashlib">hashlib</a>
+  <a href="#duckdb">DuckDB</a>
+  <a href="#fastapi">FastAPI</a>
+  <a href="#pydantic">pydantic</a>
+  <a href="#prefect">Prefect</a>
+  <a href="#subprocess">subprocess · os</a>
+  <a href="#pytest">pytest</a>
+  <a href="#logging">logging</a>
+  <a href="#random">random · Faker</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PYTHON CORE                                                  -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="python-core">
+  <div class="doc-section-title"><span class="lib-tag">Python</span> Fundamentos da linguagem</div>
+
+  <details class="doc-entry">
+    <summary><code>f-strings e format specs</code> <span class="summary-desc">interpolação e formatação de strings</span></summary>
+    <div class="doc-body">
+      <p>F-strings embutem expressões Python dentro de strings com <code>{}</code>. O que vem depois dos <code>:</code> é o <em>format spec</em> — controla como o valor é renderizado.</p>
+      <code class="sig">f"texto {<span class="param">expressão</span>:<span class="param">format_spec</span>}"</code>
+      <dl class="doc-params">
+        <dt>06d</dt><dd>Inteiro com largura 6, preenchido com zeros. <code>1</code> → <code>"000001"</code></dd>
+        <dt>.2f</dt><dd>Float com 2 casas decimais. <code>3.14159</code> → <code>"3.14"</code></dd>
+        <dt>.2%</dt><dd>Percentual com 2 casas. <code>0.067</code> → <code>"6.70%"</code></dd>
+        <dt>,d</dt><dd>Inteiro com separador de milhar. <code>1500000</code> → <code>"1,500,000"</code></dd>
+        <dt>!r</dt><dd>Usa <code>repr()</code> — bom para debug, mostra aspas em strings.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Interpolação básica
+name = "Vini"
+f"Olá, {name}"                        # → "Olá, Vini"
+
+# IDs com zero-padding
+n = 1
+f"APP-{n:06d}"                        # → "APP-000001"
+f"APP-{1000:06d}"                     # → "APP-001000"
+
+# Números financeiros
+taxa = 0.067
+f"{taxa:.2%}"                         # → "6.70%"
+f"{taxa:.0%}"                         # → "7%"
+
+renda = 1234567.89
+f"R$ {renda:,.2f}"                    # → "R$ 1,234,567.89"
+
+# Expressões dentro das chaves
+itens = [1, 2, 3]
+f"Total: {len(itens)}"                # → "Total: 3"
+f"Dobro: {n * 2}"                     # → "Dobro: 2"
+
+# Debug (Python 3.8+)
+valor = 42
+f"{valor=}"                           # → "valor=42"</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>List comprehensions · generator expressions</code> <span class="summary-desc">criar sequências de forma declarativa</span></summary>
+    <div class="doc-body">
+      <code class="sig">[<span class="param">expr</span> for <span class="param">item</span> in <span class="param">iterável</span> if <span class="param">condição</span>]  <span class="ret">→ list</span></code>
+      <code class="sig">(<span class="param">expr</span> for <span class="param">item</span> in <span class="param">iterável</span> if <span class="param">condição</span>)  <span class="ret">→ generator</span></code>
+      <dl class="doc-params">
+        <dt>[...]  lista</dt><dd>Cria e armazena todos os valores em memória. Use quando precisar indexar, medir com <code>len()</code>, ou iterar várias vezes.</dd>
+        <dt>(...)  generator</dt><dd>Lazy — produz um valor por vez, sem guardar em memória. Use dentro de <code>all()</code>, <code>any()</code>, <code>sum()</code>, <code>max()</code>.</dd>
+      </dl>
+      <div class="doc-note"><code>all(v &lt; 5 for v in valores)</code> para de avaliar no primeiro <code>False</code> (short-circuit). Com lista, avaliaria todos antes de retornar.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Lista básica
+quadrados = [x**2 for x in range(5)]          # [0, 1, 4, 9, 16]
+
+# Com filtro
+pares = [x for x in range(10) if x % 2 == 0]  # [0, 2, 4, 6, 8]
+
+# Transformação de strings
+nomes = [n.strip().lower() for n in raw_names]
+
+# Generator em all() — curto-circuito no primeiro False
+all(v < 5.0 for v in [1.2, 3.4, 4.9])         # True
+all(v < 5.0 for v in [1.2, 3.4, 6.1])         # False (para em 6.1)
+
+# Generator em sum()
+total = sum(len(linha) for linha in linhas)
+
+# Alternativa: dict comprehension
+null_dict = {col: pct for col, pct in null_pct.items() if pct > 0}</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>with — context managers</code> <span class="summary-desc">garantir abertura e fechamento de recursos</span></summary>
+    <div class="doc-body">
+      <p>O bloco <code>with</code> garante que o recurso seja liberado ao sair, mesmo em caso de exceção. Equivalente a try/finally, mas mais legível.</p>
+      <code class="sig">with <span class="param">gerenciador</span> as <span class="param">nome</span>:</code>
+      <dl class="doc-params">
+        <dt>open(path, mode)</dt><dd>Modos: <code>'r'</code> leitura (padrão), <code>'w'</code> escrita (cria/sobrescreve), <code>'a'</code> append, <code>'rb'</code>/<code>'wb'</code> binário.</dd>
+      </dl>
+      <div class="doc-warning"><code>'w'</code> sobrescreve sem aviso se o arquivo já existir. Para não perder dados, use <code>'a'</code> (append) ou verifique com <code>Path.exists()</code> antes.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Escrever JSON em arquivo
+with open("saida.json", "w", encoding="utf-8") as f:
+    json.dump(records, f, ensure_ascii=False)
+
+# Ler arquivo (modo 'r' é padrão)
+with open("data.json") as f:
+    data = json.load(f)
+
+# Append — não sobrescreve
+with open("log.jsonl", "a") as f:
+    f.write(json.dumps(registro) + "\n")
+
+# Dois recursos no mesmo with
+with open("entrada.txt") as fin, open("saida.txt", "w") as fout:
+    fout.write(fin.read().upper())
+
+# Como context manager funciona por baixo:
+# __enter__() é chamado ao entrar, __exit__() ao sair (mesmo com erro)</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Operadores booleanos — Python vs pandas</code> <span class="summary-desc">por que <code>and/or</code> falham em Series</span></summary>
+    <div class="doc-body">
+      <p><code>and</code> / <code>or</code> avaliam um objeto inteiro como verdadeiro ou falso. Em pandas, a operação precisa acontecer elemento a elemento — por isso use os operadores bitwise.</p>
+      <dl class="doc-params">
+        <dt>&amp; (E)</dt><dd>Equivalente ao <code>and</code> para Series. <code>cond1 &amp; cond2</code></dd>
+        <dt>| (OU)</dt><dd>Equivalente ao <code>or</code>. <code>cond1 | cond2</code></dd>
+        <dt>~ (NÃO)</dt><dd>Equivalente ao <code>not</code>. <code>~cond</code></dd>
+      </dl>
+      <div class="doc-warning">Sempre coloque cada condição em parênteses. Sem parênteses, a precedência dos operadores bitwise gera resultados silenciosamente errados.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># ERRADO — raises ValueError: truth value of Series is ambiguous
+df[df['age'] > 18 and df['income'] > 0]
+
+# CORRETO — cada condição entre parênteses
+df[(df['age'] > 18) & (df['income'] > 0)]          # E
+df[(df['age'] < 18) | (df['age'] > 100)]           # OU
+df[~df['name'].isnull()]                            # NÃO (negação)
+
+# Múltiplas condições — legível com variável intermediária
+mask = (
+    (df['age'] >= 18) &
+    (df['income'] > 0) &
+    (df['defaulted'] == 0)
+)
+df[mask]
+
+# .sum() em Series booleana conta os True
+(df['age'] <= 0).sum()                             # qtd de idades inválidas
+bad = ((df['age'] < 18) | (df['age'] > 100)).sum()
+
+# Python puro (fora de pandas) — and/or funcionam normalmente
+if x > 0 and y < 100:
+    print("ok")</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PANDAS                                                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="pandas">
+  <div class="doc-section-title"><span class="lib-tag">pandas</span> DataFrames e Series</div>
+
+  <details class="doc-entry">
+    <summary><code>pd.read_csv()</code> <span class="summary-desc">carrega CSV em DataFrame</span></summary>
+    <div class="doc-body">
+      <code class="sig">pd.read_csv(<span class="param">filepath</span>, <span class="default">index_col=None</span>, <span class="default">dtype=None</span>, <span class="default">parse_dates=False</span>, <span class="default">na_values=None</span>) <span class="ret">→ DataFrame</span></code>
+      <dl class="doc-params">
+        <dt>index_col</dt><dd><code>0</code> usa a primeira coluna como índice, eliminando a coluna <code>Unnamed: 0</code> que o Kaggle inclui. <code>False</code> força índice numérico mesmo se houver uma coluna explícita.</dd>
+        <dt>dtype</dt><dd>Dict coluna → tipo. Evita inferência que pode ser lenta ou errada. <code>{'id': str, 'score': float}</code></dd>
+        <dt>na_values</dt><dd>Strings adicionais a tratar como NaN. Padrão já inclui <code>''</code>, <code>'NA'</code>, <code>'null'</code>.</dd>
+      </dl>
+      <div class="doc-note">O pandas infere tipos por padrão. Uma única célula inválida pode fazer uma coluna numérica virar <code>object</code>. Em produção, prefira <code>dtype</code> explícito.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Básico
+df = pd.read_csv('data.csv')
+
+# Com índice (evita coluna Unnamed: 0 do Kaggle)
+df = pd.read_csv('data.csv', index_col=0)
+
+# Tipos explícitos + parsing de datas
+df = pd.read_csv('data.csv',
+    dtype={'applicant_id': str, 'score': float},
+    parse_dates=['created_at'])
+
+# Valores nulos customizados
+df = pd.read_csv('data.csv', na_values=['', 'N/A', '-', 'none', 'NULL'])
+
+# Ler só algumas colunas (mais rápido em arquivos grandes)
+df = pd.read_csv('data.csv', usecols=['id', 'income', 'defaulted'])
+
+# Separador diferente (TSV, ponto-e-vírgula)
+df = pd.read_csv('data.tsv', sep='\t')
+df = pd.read_csv('data.csv', sep=';')         # padrão europeu</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>df.info() · df.shape · df.dtypes · df.describe()</code> <span class="summary-desc">inspecionar estrutura e conteúdo</span></summary>
+    <div class="doc-body">
+      <dl class="doc-params">
+        <dt>df.info()</dt><dd>Imprime: nº de linhas, nome + tipo de cada coluna, contagem de não-nulos. Atributo visual — não retorna valor útil.</dd>
+        <dt>df.shape</dt><dd>Tupla <code>(linhas, colunas)</code>. É atributo, não método — sem parênteses.</dd>
+        <dt>df.dtypes</dt><dd>Series com o tipo de cada coluna. <code>object</code> geralmente significa string (ou misto).</dd>
+        <dt>df.describe()</dt><dd>count, mean, std, min, percentis, max para colunas numéricas. <code>include='all'</code> inclui colunas <code>object</code>.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">df.info()
+# → RangeIndex: 150000 entries ...
+# → dtypes: float64(5), int64(4), object(1)
+
+n_linhas, n_colunas = df.shape      # desempacotar a tupla
+print(df.shape)                     # (150000, 10)
+
+df.dtypes
+# → SeriousDlqin2yrs      int64
+# → RevolvingUtilization  float64
+# → MonthlyIncome         float64   ← nullable float (tem NaN)
+
+df.describe()                       # só colunas numéricas
+df.describe(include='all')          # inclui object/string
+df['income'].describe()             # descrição de uma coluna só
+
+# Coluna 'object' com poucos valores únicos → provavelmente categórica
+df['risk_tier'].unique()            # array de valores únicos
+df['risk_tier'].nunique()           # quantidade de valores únicos</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>df.isnull() · df.isna() · df.notnull()</code> <span class="summary-desc">detectar valores ausentes</span></summary>
+    <div class="doc-body">
+      <code class="sig">DataFrame.isnull() <span class="ret">→ DataFrame[bool]</span></code>
+      <p><code>isnull()</code> e <code>isna()</code> são aliases exatos. Retornam DataFrame/Series do mesmo shape com <code>True</code> onde o valor é <code>NaN</code>, <code>None</code>, ou <code>NaT</code>.</p>
+      <div class="doc-tip">Para calcular percentual: divida por <code>len(df)</code>, não por <code>.count()</code>. <code>len(df)</code> é o total de linhas; <code>.count()</code> já exclui os nulos — você mediria nulo em relação ao não-nulo.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Booleanos por elemento
+df['income'].isnull()               # Series de True/False
+
+# Contar nulos por coluna
+df.isnull().sum()
+
+# Percentual de nulos por coluna
+(df.isnull().sum() / len(df) * 100).round(2)
+
+# Filtrar linhas onde income é nulo
+df[df['income'].isnull()]
+
+# Filtrar linhas onde income NÃO é nulo
+df[df['income'].notnull()]
+df[~df['income'].isnull()]          # equivalente com negação
+
+# Colunas que TÊM pelo menos 1 nulo
+df.columns[df.isnull().any()]
+
+# Filtrado como dict (só colunas com nulos)
+null_pct = (df.isnull().sum() / len(df) * 100).round(2)
+null_pct[null_pct > 0].to_dict()   # {'MonthlyIncome': 19.82, ...}</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Series.fillna()</code> <span class="summary-desc">substituir valores ausentes</span></summary>
+    <div class="doc-body">
+      <code class="sig">Series.fillna(<span class="param">value=None</span>, <span class="default">method=None</span>, <span class="default">inplace=False</span>) <span class="ret">→ Series</span></code>
+      <dl class="doc-params">
+        <dt>value</dt><dd>Escalar, dict ou Series. Escalar preenche todos os NaN com o mesmo valor. Dict mapeia índice → valor.</dd>
+        <dt>method</dt><dd><code>'ffill'</code>: propaga o último valor válido para frente. <code>'bfill'</code>: propaga o próximo valor válido para trás. Para séries temporais.</dd>
+        <dt>inplace</dt><dd>Se <code>True</code>, modifica o objeto e retorna <code>None</code>. Prefira evitar — retornar e atribuir é mais explícito.</dd>
+      </dl>
+      <div class="doc-warning"><code>fillna()</code> retorna uma <em>nova</em> Series. Para que a mudança persista no DataFrame, atribua de volta: <code>df['col'] = df['col'].fillna(valor)</code>.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Escalar fixo
+df['dependents'] = df['dependents'].fillna(0)
+
+# Mediana da própria coluna (robusto a outliers)
+df['income'] = df['income'].fillna(df['income'].median())
+
+# Média
+df['score'] = df['score'].fillna(df['score'].mean())
+
+# Valor mais frequente (moda)
+df['tier'] = df['tier'].fillna(df['tier'].mode()[0])
+
+# Preencher múltiplas colunas de uma vez
+df = df.fillna({
+    'income': df['income'].median(),
+    'dependents': 0,
+    'score': 500
+})
+
+# Forward-fill (para séries temporais ordenadas)
+df['preco'] = df['preco'].fillna(method='ffill')
+
+# ERRADO — sem atribuição, o DataFrame não muda
+df['income'].fillna(0)              # resultado descartado
+df['income']                        # ainda tem NaN</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Series.astype()</code> <span class="summary-desc">converter tipo de dados</span></summary>
+    <div class="doc-body">
+      <code class="sig">Series.astype(<span class="param">dtype</span>) <span class="ret">→ Series</span></code>
+      <dl class="doc-params">
+        <dt>dtype</dt><dd>Tipo Python (<code>int</code>, <code>float</code>, <code>str</code>, <code>bool</code>) ou string numpy (<code>'int32'</code>, <code>'float64'</code>). <code>'Int64'</code> (maiúsculo) é o tipo inteiro nullable — suporta NaN.</dd>
+      </dl>
+      <div class="doc-warning">Converter para <code>int</code> com NaN presentes levanta <code>ValueError</code>. Preencha com <code>.fillna()</code> antes, ou use <code>'Int64'</code> (nullable integer).</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># bool → int (feature de ausência para ML)
+df['income_missing'] = df['income'].isnull().astype(int)
+# True → 1, False → 0
+
+# str → int (quando você sabe que é seguro)
+df['year'] = df['year_str'].astype(int)
+
+# int → str (para joins, IDs)
+df['code'] = df['id'].astype(str)
+
+# float com NaN → int (preenche antes)
+df['count'] = df['count'].fillna(0).astype(int)
+
+# float → nullable int (mantém NaN)
+df['count'] = df['count'].astype('Int64')
+
+# Categoria (economiza memória em colunas repetitivas)
+df['tier'] = df['tier'].astype('category')</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Series.mean() · median() · sum() · quantile()</code> <span class="summary-desc">estatísticas de redução</span></summary>
+    <div class="doc-body">
+      <dl class="doc-params">
+        <dt>.mean()</dt><dd>Média aritmética. Ignora NaN por padrão. Em colunas binárias (0/1), a média é diretamente a proporção de 1s.</dd>
+        <dt>.median()</dt><dd>Valor que divide a distribuição ao meio. Robusto a outliers — não é afetado por extremos. Para dados financeiros assimétricos, é melhor que a média como valor de imputação.</dd>
+        <dt>.sum()</dt><dd>Soma dos valores. Em Series booleanas, conta os <code>True</code>.</dd>
+        <dt>.quantile(q)</dt><dd>Valor no percentil <code>q</code>. Float (0.5 = mediana) ou lista de floats. Retorna escalar ou Series.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Taxa de default — coluna binária: mean() = proporção
+df['defaulted'].mean()                             # 0.0671 = 6.71%
+
+# Mediana é robusta a salários extremos
+df['income'].median()                              # valor típico
+df['income'].mean()                                # puxado para cima por outliers
+
+# Contar com sum() em booleanos
+(df['age'] <= 0).sum()                             # idades inválidas
+(df['income'] < 0).sum()                           # rendas negativas
+
+# Percentil único
+df['income'].quantile(0.99)                        # P99
+
+# Múltiplos percentis de uma vez
+df['income'].quantile([0.25, 0.5, 0.75, 0.99])
+# 0.25     3000.0
+# 0.50     5400.0
+# 0.75     8500.0
+# 0.99    45000.0
+
+# Por grupo
+df.groupby('tier')['income'].median()
+
+# Ignorar nulos (padrão) vs incluir
+df['income'].mean(skipna=True)   # padrão
+df['income'].mean(skipna=False)  # NaN se tiver qualquer nulo</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Series.value_counts()</code> <span class="summary-desc">frequência de cada valor único</span></summary>
+    <div class="doc-body">
+      <code class="sig">Series.value_counts(<span class="default">normalize=False</span>, <span class="default">dropna=True</span>) <span class="ret">→ Series</span></code>
+      <dl class="doc-params">
+        <dt>normalize</dt><dd>Se <code>True</code>, retorna proporções em vez de contagens.</dd>
+        <dt>dropna</dt><dd>Se <code>False</code>, NaN aparece como uma categoria no resultado.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Contagens (ordenado do mais ao menos frequente)
+df['risk_tier'].value_counts()
+# HIGH      60000
+# MEDIUM    50000
+# LOW       40000
+
+# Proporções
+df['risk_tier'].value_counts(normalize=True)
+# HIGH      0.40
+# MEDIUM    0.33
+# LOW       0.27
+
+# Percentuais
+(df['risk_tier'].value_counts(normalize=True) * 100).round(2)
+# HIGH      40.00
+# MEDIUM    33.33
+# LOW       26.67
+
+# Incluir NaN como categoria
+df['tier'].value_counts(dropna=False)
+
+# Converter para dict (para serializar em JSON/API)
+df['tier'].value_counts(normalize=True).mul(100).round(2).to_dict()</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>df.groupby()</code> <span class="summary-desc">agregar por categoria</span></summary>
+    <div class="doc-body">
+      <code class="sig">DataFrame.groupby(<span class="param">by</span>, <span class="default">as_index=True</span>) <span class="ret">→ GroupBy</span></code>
+      <p><code>groupby()</code> retorna um objeto GroupBy — não um resultado ainda. Aplique uma função de agregação depois.</p>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Agregação simples
+df.groupby('tier')['income'].median()
+
+# Múltiplas colunas, uma função
+df.groupby('tier')[['income', 'score']].mean()
+
+# Funções diferentes por coluna
+df.groupby('tier').agg({
+    'income':    'median',
+    'defaulted': 'mean',     # taxa de default por tier
+    'id':        'count'     # volume por tier
+})
+
+# Múltiplas funções numa coluna — resultado tem MultiIndex
+df.groupby('tier')['income'].agg(['mean', 'median', 'std'])
+
+# Reset para DataFrame flat (remove MultiIndex do índice)
+df.groupby('tier')['income'].mean().reset_index()
+
+# Filtrar grupos com transform (mantém shape original)
+df['tier_median'] = df.groupby('tier')['income'].transform('median')</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Series.to_dict() · df.to_dict()</code> <span class="summary-desc">converter para dicionário Python nativo</span></summary>
+    <div class="doc-body">
+      <code class="sig">Series.to_dict() <span class="ret">→ dict</span></code>
+      <code class="sig">DataFrame.to_dict(<span class="param">orient</span>) <span class="ret">→ dict | list[dict]</span></code>
+      <div class="doc-tip">Use <code>to_dict()</code> quando precisar serializar para JSON ou passar para código que não depende de pandas. Series e DataFrames não são serializable por padrão.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Series → {índice: valor}
+null_pct.to_dict()
+# {'MonthlyIncome': 19.82, 'NumberOfDependents': 3.11}
+
+# Padrão comum: filtrar antes de converter
+null_pct[null_pct > 0].to_dict()   # só as colunas com nulos
+
+# DataFrame → list de dicts (uma por linha) — o mais comum para APIs
+df.head(3).to_dict('records')
+# [{'id': 1, 'income': 5000, ...}, {'id': 2, ...}, ...]
+
+# DataFrame → dict de dicts (coluna → {índice → valor})
+df.to_dict('dict')
+
+# Agregar e converter diretamente
+df.groupby('tier')['income'].median().to_dict()
+# {'HIGH': 7200.0, 'LOW': 3100.0, 'MEDIUM': 5000.0}</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>df.to_parquet() · pd.read_parquet()</code> <span class="summary-desc">persistência colunar eficiente</span></summary>
+    <div class="doc-body">
+      <code class="sig">DataFrame.to_parquet(<span class="param">path</span>, <span class="default">index=True</span>, <span class="default">compression='snappy'</span>)</code>
+      <code class="sig">pd.read_parquet(<span class="param">path</span>, <span class="default">columns=None</span>) <span class="ret">→ DataFrame</span></code>
+      <dl class="doc-params">
+        <dt>index=False</dt><dd>Não salva o índice numérico sequencial. Use sempre que o índice não tiver significado semântico.</dd>
+        <dt>columns</dt><dd>Lista de colunas a ler. Parquet é colunar — você paga só pelo que lê. Muito mais rápido que CSV em tabelas largas.</dd>
+      </dl>
+      <div class="doc-note">Requer <code>pip install pyarrow</code>.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Salvar sem o índice numérico
+df.to_parquet('output.parquet', index=False)
+
+# Com compressão mais forte (arquivo menor, mais lento para ler/escrever)
+df.to_parquet('output.parquet', index=False, compression='gzip')
+
+# Sem compressão (mais rápido para I/O, arquivo maior)
+df.to_parquet('output.parquet', index=False, compression=None)
+
+# Ler tudo
+df = pd.read_parquet('output.parquet')
+
+# Ler só colunas necessárias (muito mais rápido em arquivos grandes)
+df = pd.read_parquet('output.parquet', columns=['id', 'income', 'defaulted'])
+
+# DuckDB também lê parquet diretamente — sem pd.read_parquet
+# SELECT * FROM 'output.parquet'</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>df.merge()</code> <span class="summary-desc">juntar dois DataFrames por coluna-chave</span></summary>
+    <div class="doc-body">
+      <code class="sig">DataFrame.merge(<span class="param">right</span>, <span class="default">how='inner'</span>, <span class="default">on=None</span>, <span class="default">left_on=None</span>, <span class="default">right_on=None</span>, <span class="default">suffixes=('_x','_y')</span>) <span class="ret">→ DataFrame</span></code>
+      <dl class="doc-params">
+        <dt>how</dt><dd><code>'inner'</code>: só linhas que casam nos dois. <code>'left'</code>: todas da esquerda, NaN para não-casados. <code>'outer'</code>: tudo de ambos.</dd>
+        <dt>on</dt><dd>Nome da coluna presente nos dois. Use <code>left_on</code> / <code>right_on</code> quando os nomes diferem.</dd>
+        <dt>suffixes</dt><dd>Sufixos para colunas com nome duplicado fora da chave. Padrão <code>('_x', '_y')</code>; personalize para clareza.</dd>
+      </dl>
+      <div class="doc-warning">Colunas com nome igual que não são chave ganham sufixo automático. Use <code>suffixes=('_csv', '_api')</code> para clareza em vez de <code>_x/_y</code>.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Inner join — só linhas com match nos dois
+df = df_csv.merge(df_api, on='applicant_id')
+
+# Left join — mantém todos os registros do CSV (NaN onde não há match)
+df = df_csv.merge(df_api, on='applicant_id', how='left')
+
+# Chaves com nomes diferentes
+df = df_csv.merge(df_api, left_on='applicant_id', right_on='id')
+
+# Sufixos legíveis (evita income_x, income_y)
+df = df_csv.merge(df_api, on='id', suffixes=('_csv', '_api'))
+
+# Checar se o join não explodiu o número de linhas
+print(f"csv={len(df_csv)}, api={len(df_api)}, merged={len(df)}")
+# Se merged > csv → havia duplicatas na chave do lado direito
+
+# Merge em múltiplas colunas
+df = df1.merge(df2, on=['applicant_id', 'data_ref'])
+
+# Outer join — todas as linhas de ambos (NaN onde não casar)
+df = df_csv.merge(df_api, on='id', how='outer', indicator=True)
+# Coluna '_merge': 'left_only', 'right_only', 'both'
+df[df['_merge'] == 'right_only']   # registros que estão só na API</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>df.loc[] · df.iloc[] · df.at[]</code> <span class="summary-desc">selecionar por rótulo ou por posição inteira</span></summary>
+    <div class="doc-body">
+      <code class="sig">df.loc[<span class="param">row_label</span>, <span class="param">col_label</span>]</code>
+      <code class="sig">df.iloc[<span class="param">row_int</span>, <span class="param">col_int</span>]</code>
+      <dl class="doc-params">
+        <dt>.loc[]</dt><dd>Seleção por <strong>rótulo</strong> (nome do índice ou da coluna). Slices incluem os dois extremos.</dd>
+        <dt>.iloc[]</dt><dd>Seleção por <strong>posição inteira</strong> (0-based). Slices excluem o limite superior — igual ao Python puro.</dd>
+        <dt>.at[] / .iat[]</dt><dd>Versões escalares de <code>.loc</code> / <code>.iloc</code>. Mais rápidas quando se quer um único valor.</dd>
+      </dl>
+      <div class="doc-tip">Quando o índice é inteiro sequencial, <code>.loc[0]</code> e <code>.iloc[0]</code> retornam o mesmo. Diferem quando o índice tem gaps, strings, ou após um <code>.reset_index()</code>.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># .loc — por rótulo
+df.loc[0]                        # linha com label 0
+df.loc[0, 'income']              # linha 0, coluna 'income'  → escalar
+df.loc[:, 'income']              # coluna inteira
+df.loc[df['age'] > 30]           # filtro booleano (forma mais comum)
+df.loc[df['tier'] == 'HIGH', 'income']  # filtro + coluna específica
+
+# .iloc — por posição
+df.iloc[0]                       # primeira linha
+df.iloc[-1]                      # última linha
+df.iloc[0, 2]                    # linha 0, coluna índice 2
+df.iloc[:5]                      # primeiras 5 linhas
+df.iloc[:, :3]                   # primeiras 3 colunas
+df.iloc[::2]                     # linhas pares (step=2)
+
+# .at / .iat — escalar direto (mais rápido que loc/iloc)
+df.at[0, 'income']               # label 0, coluna 'income'
+df.iat[0, 3]                     # posição (0, 3)
+
+# Converter linha para dict (comum em APIs)
+df.iloc[0].to_dict()             # {'income': 5000, 'age': 35, ...}</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>df.query() · df.apply() · Series.map()</code> <span class="summary-desc">filtros expressivos e transformações por linha</span></summary>
+    <div class="doc-body">
+      <code class="sig">DataFrame.query(<span class="param">expr: str</span>) <span class="ret">→ DataFrame</span></code>
+      <code class="sig">DataFrame.apply(<span class="param">func</span>, <span class="default">axis=0</span>) <span class="ret">→ Series</span></code>
+      <code class="sig">Series.map(<span class="param">arg: dict | callable</span>) <span class="ret">→ Series</span></code>
+      <dl class="doc-params">
+        <dt>query()</dt><dd>Filtra com string de expressão Python. Legível para múltiplas condições. Variáveis externas via <code>@nome</code>.</dd>
+        <dt>apply(axis=1)</dt><dd>Aplica função linha a linha. Lento em grandes DataFrames — prefira operações vetorizadas quando possível.</dd>
+        <dt>map(dict)</dt><dd>Mapeia cada valor via dict ou função. Mais rápido que <code>apply</code> para transformações de coluna única.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># query() — legível para condições compostas
+df.query("age > 30 and income > 5000")
+df.query("risk_tier == 'HIGH' or defaulted == 1")
+df.query("risk_tier in ['HIGH', 'MEDIUM']")
+
+# variável externa com @
+min_age = 18
+df.query("age >= @min_age and income > 0")
+
+# apply() por coluna (axis=0, padrão) — preenche nulos com mediana de cada coluna
+df[['income', 'score']].apply(lambda col: col.fillna(col.median()))
+
+# apply() por linha (axis=1) — lógica que cruza múltiplas colunas
+def classify(row):
+    if row['late_90_days'] > 2:         return 'HIGH'
+    elif row['late_30_59_days'] > 1:    return 'MEDIUM'
+    return 'LOW'
+df['risk_tier'] = df.apply(classify, axis=1)
+
+# map() — transformação de uma coluna via dict
+label_map = {'HIGH': 2, 'MEDIUM': 1, 'LOW': 0}
+df['risk_num'] = df['risk_tier'].map(label_map)
+
+# map() — via função (sem dict)
+df['income_k'] = df['income'].map(lambda x: round(x / 1000, 1))
+
+# map() vs apply: map só para Series, apply para DataFrame/Series</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PATHLIB                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="pathlib">
+  <div class="doc-section-title"><span class="lib-tag">pathlib</span> Manipulação de caminhos</div>
+
+  <details class="doc-entry">
+    <summary><code>Path()</code> <span class="summary-desc">objeto de caminho cross-platform</span></summary>
+    <div class="doc-body">
+      <code class="sig">from pathlib import Path<br>p = Path(<span class="param">string</span>)</code>
+      <p>Representa caminhos de forma orientada a objetos. O operador <code>/</code> concatena segmentos.</p>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">from pathlib import Path
+
+# Criar objeto Path
+p = Path('data/raw/file.csv')
+
+# Concatenar com / (funciona em Windows e Unix)
+p = Path('data') / 'raw' / 'file.csv'
+
+# Acessar partes
+p.name      # 'file.csv'        — nome com extensão
+p.stem      # 'file'            — nome sem extensão
+p.suffix    # '.csv'            — extensão (com ponto)
+p.parent    # Path('data/raw')  — diretório pai
+
+# Verificar existência
+if p.exists():
+    df = pd.read_csv(p)
+
+p.is_file()   # True se é arquivo
+p.is_dir()    # True se é diretório
+
+# Listar arquivos num diretório
+list(Path('data/raw').glob('*.csv'))      # todos os .csv
+list(Path('data').rglob('*.parquet'))    # recursivo</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Path.mkdir()</code> <span class="summary-desc">criar diretório</span></summary>
+    <div class="doc-body">
+      <code class="sig">Path.mkdir(<span class="default">parents=False</span>, <span class="default">exist_ok=False</span>)</code>
+      <dl class="doc-params">
+        <dt>parents=True</dt><dd>Cria todos os diretórios intermediários, como <code>mkdir -p</code>.</dd>
+        <dt>exist_ok=True</dt><dd>Não levanta exceção se o diretório já existir. Torna o código idempotente.</dd>
+      </dl>
+      <div class="doc-tip">Em produção, sempre use <code>mkdir(parents=True, exist_ok=True)</code> antes de escrever. É idempotente — pode ser chamado quantas vezes quiser.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Criar diretório simples (falha se pai não existir)
+Path('data').mkdir()
+
+# Criar toda a árvore, sem erro se já existir
+Path('data/staging').mkdir(parents=True, exist_ok=True)
+
+# Padrão antes de escrever arquivo
+output = Path('data/staging/result.parquet')
+output.parent.mkdir(parents=True, exist_ok=True)  # cria o diretório pai
+df.to_parquet(output, index=False)
+
+# Equivalente para json
+out = Path('data/raw/bureau_api.json')
+out.parent.mkdir(parents=True, exist_ok=True)
+with out.open('w') as f:
+    json.dump(records, f)</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Path.read_text() · Path.write_text()</code> <span class="summary-desc">ler e escrever sem abrir explicitamente</span></summary>
+    <div class="doc-body">
+      <code class="sig">Path.read_text(<span class="default">encoding='utf-8'</span>) <span class="ret">→ str</span></code>
+      <code class="sig">Path.write_text(<span class="param">data: str</span>, <span class="default">encoding='utf-8'</span>)</code>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Ler arquivo inteiro
+content = Path('config.json').read_text()
+
+# Equivalente ao with open — mais conciso para leituras simples
+data = json.loads(Path('data.json').read_text())
+
+# JSONL: uma linha JSON por execução do pipeline
+lines = Path('metrics.jsonl').read_text().strip().split('\n')
+history = [json.loads(l) for l in lines if l]
+
+# Escrever (sobrescreve se existir)
+Path('output.txt').write_text("hello world\n")
+
+# Append não está disponível em write_text — use open('a')
+with Path('log.jsonl').open('a') as f:
+    f.write(json.dumps(registro) + '\n')</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- JSON                                                         -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="json">
+  <div class="doc-section-title"><span class="lib-tag">json</span> Serialização e desserialização</div>
+
+  <details class="doc-entry">
+    <summary><code>json.dump() · json.dumps()</code> <span class="summary-desc">Python → JSON</span></summary>
+    <div class="doc-body">
+      <code class="sig">json.dump(<span class="param">obj</span>, <span class="param">fp</span>, <span class="default">indent=None</span>, <span class="default">ensure_ascii=True</span>)</code>
+      <code class="sig">json.dumps(<span class="param">obj</span>, <span class="default">indent=None</span>) <span class="ret">→ str</span></code>
+      <dl class="doc-params">
+        <dt>dump vs dumps</dt><dd><code>dump()</code> escreve direto num file object. <code>dumps()</code> retorna string — útil para logging ou quando você precisa manipular antes de salvar.</dd>
+        <dt>ensure_ascii=False</dt><dd>Preserva acentos e UTF-8 legíveis em vez de escapar com <code>\uXXXX</code>.</dd>
+        <dt>indent</dt><dd><code>2</code> ou <code>4</code> para legível. <code>None</code> (padrão) para compacto.</dd>
+      </dl>
+      <div class="doc-warning">Tipos não-serializáveis levantam <code>TypeError</code>: <code>datetime</code>, <code>set</code>, objetos numpy/pandas. Converta antes: <code>datetime.isoformat()</code>, <code>list(set_obj)</code>, <code>int(np_val)</code>.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import json
+
+# Para arquivo — mais comum
+with open('saida.json', 'w', encoding='utf-8') as f:
+    json.dump(records, f, ensure_ascii=False, indent=2)
+
+# Para string — logging, API, manipulação
+json_str = json.dumps(record, ensure_ascii=False)
+
+# Compacto para storage (sem espaços)
+compact = json.dumps(record, separators=(',', ':'))
+
+# JSONL — uma linha por registro (streaming, históricos)
+with open('metrics.jsonl', 'a') as f:
+    f.write(json.dumps(metric_dict) + '\n')
+
+# datetime não é serializável — converta antes
+import datetime
+registro = {
+    'timestamp': datetime.datetime.now().isoformat(),  # str OK
+    'score': 850,
+    'ids': list({1, 2, 3})      # set → list antes do dump
+}</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>json.load() · json.loads()</code> <span class="summary-desc">JSON → Python</span></summary>
+    <div class="doc-body">
+      <code class="sig">json.load(<span class="param">fp</span>) <span class="ret">→ dict | list | ...</span></code>
+      <code class="sig">json.loads(<span class="param">s: str</span>) <span class="ret">→ dict | list | ...</span></code>
+      <p>Mapeamento de tipos: <code>object</code>→<code>dict</code>, <code>array</code>→<code>list</code>, <code>string</code>→<code>str</code>, <code>number</code>→<code>int</code>/<code>float</code>, <code>true/false</code>→<code>True/False</code>, <code>null</code>→<code>None</code>.</p>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># De arquivo
+with open('data.json') as f:
+    data = json.load(f)
+
+# De string (resposta de API, valor de banco, env var)
+record = json.loads('{"id": 1, "score": 850}')
+
+# De Path (combinado com read_text)
+data = json.loads(Path('data.json').read_text())
+
+# JSONL — ler todas as linhas
+with open('metrics.jsonl') as f:
+    history = [json.loads(line) for line in f if line.strip()]
+
+# Alternativa para JSONL com Path
+lines = Path('metrics.jsonl').read_text().strip().split('\n')
+history = [json.loads(l) for l in lines if l]</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- DATETIME                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="datetime">
+  <div class="doc-section-title"><span class="lib-tag">datetime</span> Datas e durações</div>
+
+  <details class="doc-entry">
+    <summary><code>datetime.now() · strftime() · isoformat()</code> <span class="summary-desc">momento atual e formatação</span></summary>
+    <div class="doc-body">
+      <code class="sig">from datetime import datetime<br>datetime.now() <span class="ret">→ datetime</span></code>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">from datetime import datetime, timezone
+
+# Hora local (naive — sem fuso)
+now = datetime.now()
+
+# UTC com fuso (aware — para sistemas distribuídos)
+now_utc = datetime.now(tz=timezone.utc)
+
+# ISO 8601 — padrão para JSON e APIs
+now.isoformat()                    # '2025-04-17T14:30:00.123456'
+
+# Formatos customizados com strftime
+now.strftime('%Y-%m-%d')           # '2025-04-17'
+now.strftime('%Y-%m-%d %H:%M:%S')  # '2025-04-17 14:30:00'
+now.strftime('%d/%m/%Y')           # '17/04/2025' — padrão BR
+
+# Reverter ISO → datetime
+dt = datetime.fromisoformat('2025-04-17T14:30:00')
+
+# Reverter strftime com strptime
+dt = datetime.strptime('17/04/2025', '%d/%m/%Y')</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>timedelta</code> <span class="summary-desc">representar e calcular durações</span></summary>
+    <div class="doc-body">
+      <code class="sig">from datetime import timedelta<br>timedelta(<span class="default">days=0</span>, <span class="default">hours=0</span>, <span class="default">minutes=0</span>, <span class="default">seconds=0</span>)</code>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">from datetime import datetime, timedelta
+
+# Criar durações
+cinco_min  = timedelta(minutes=5)
+uma_hora   = timedelta(hours=1)
+sete_dias  = timedelta(weeks=1)
+
+# Aritmética com datetime
+ontem    = datetime.now() - timedelta(days=1)
+amanhã   = datetime.now() + timedelta(days=1)
+proxSem  = datetime.now() + timedelta(weeks=1)
+
+# Timestamps espalhados no passado (simulação de dados)
+base = datetime.now()
+ts = base - timedelta(minutes=random.randint(0, 10_000))
+ts.isoformat()                     # spread de ~7 dias
+
+# Verificar expiração de cache TTL
+gerado_em = datetime.now()
+# ... algum tempo depois ...
+ainda_valido = (datetime.now() - gerado_em) < timedelta(minutes=5)
+
+# Diferença entre dois datetimes → timedelta
+delta = datetime.now() - gerado_em
+delta.total_seconds()              # duração em segundos (float)
+delta.days                         # só dias inteiros</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- HASHLIB                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="hashlib">
+  <div class="doc-section-title"><span class="lib-tag">hashlib</span> Hash criptográfico</div>
+
+  <details class="doc-entry">
+    <summary><code>hashlib.sha256()</code> <span class="summary-desc">hash determinístico e one-way</span></summary>
+    <div class="doc-body">
+      <code class="sig">hashlib.sha256(<span class="param">data: bytes</span>).hexdigest() <span class="ret">→ str (64 chars)</span></code>
+      <dl class="doc-params">
+        <dt>data</dt><dd>Deve ser <code>bytes</code>. Converta string com <code>.encode()</code> (UTF-8 por padrão).</dd>
+        <dt>.hexdigest()</dt><dd>Hash como string hexadecimal de 64 chars. Truncar com <code>[:16]</code> reduz para 16 chars — suficiente como identificador interno.</dd>
+      </dl>
+      <div class="doc-note">Determinístico: mesmo input → mesmo hash sempre. One-way: impossível recuperar o dado original. Por isso é o padrão para anonimizar PII mantendo capacidade de join (mesmo CPF → mesmo hash).</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import hashlib
+
+# Hash básico de string
+hashlib.sha256("hello".encode()).hexdigest()
+# → 'b94d27b9934d3e08a52e52d7da7dabfac484efe04294e576...' (64 chars)
+
+# Com truncação para identificador interno
+hashlib.sha256("hello".encode()).hexdigest()[:16]
+# → 'b94d27b9934d3e08'  (16 chars)
+
+# Anonimizar CPF (PII) mantendo joinability
+cpf_raw = "123.456.789-09"
+cpf_clean = cpf_raw.replace('.', '').replace('-', '')  # '12345678909'
+cpf_hash = hashlib.sha256(cpf_clean.encode()).hexdigest()[:16]
+
+# Verificar que é determinístico
+a = hashlib.sha256("texto".encode()).hexdigest()
+b = hashlib.sha256("texto".encode()).hexdigest()
+a == b   # True — sempre igual para o mesmo input
+
+# Input diferente → hash completamente diferente (avalanche effect)
+hashlib.sha256("texto".encode()).hexdigest()[:8]   # '9f86d081'
+hashlib.sha256("Texto".encode()).hexdigest()[:8]   # 'b14b957c' — totalmente diferente
+
+# Outros algoritmos disponíveis
+hashlib.md5("hello".encode()).hexdigest()           # 32 chars (não usar para segurança)
+hashlib.sha512("hello".encode()).hexdigest()        # 128 chars</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- DUCKDB                                                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="duckdb">
+  <div class="doc-section-title"><span class="lib-tag">duckdb</span> SQL analítico em processo</div>
+
+  <details class="doc-entry">
+    <summary><code>duckdb.connect() · duckdb.sql()</code> <span class="summary-desc">criar conexão e executar queries</span></summary>
+    <div class="doc-body">
+      <code class="sig">conn = duckdb.connect(<span class="default">':memory:'</span>) <span class="ret">→ DuckDBPyConnection</span></code>
+      <dl class="doc-params">
+        <dt>':memory:'</dt><dd>Banco em memória — desaparece ao fechar. Ideal para transformações temporárias.</dd>
+        <dt>'path/to/file.db'</dt><dd>Banco persistente em disco — mantém tabelas entre sessões.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import duckdb
+
+# Em memória
+conn = duckdb.connect()
+
+# Banco persistente
+conn = duckdb.connect('analytics.db')
+
+# Atalho sem conexão explícita (conexão default implícita)
+duckdb.sql("SELECT 1").df()
+
+# Como context manager (fecha automaticamente)
+with duckdb.connect() as conn:
+    result = conn.execute("SELECT 42 AS answer").fetchdf()
+</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>conn.execute() · .fetchdf() · .df()</code> <span class="summary-desc">executar SQL e materializar resultado</span></summary>
+    <div class="doc-body">
+      <dl class="doc-params">
+        <dt>.fetchdf() / .df()</dt><dd>Resultado como pandas DataFrame.</dd>
+        <dt>.fetchall()</dt><dd>Lista de tuplas.</dd>
+        <dt>.fetchone()</dt><dd>Próxima linha como tupla.</dd>
+      </dl>
+      <div class="doc-note">DuckDB lê Parquet, CSV e JSON diretamente via SQL, sem importação prévia. O caminho do arquivo vira o nome da tabela entre aspas simples.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="SQL">
+<pre><code class="language-sql">-- Ler Parquet diretamente (sem importar)
+SELECT * FROM 'data/staging/credit_applications.parquet' LIMIT 10;
+
+-- Agregação
+SELECT risk_tier,
+       COUNT(*)                    AS n,
+       ROUND(AVG(monthly_income), 2) AS avg_income,
+       ROUND(AVG(defaulted) * 100, 2) AS default_rate_pct
+FROM 'data/marts/mart_credit_features.parquet'
+GROUP BY risk_tier
+ORDER BY default_rate_pct DESC;
+
+-- Criar tabela a partir de Parquet
+CREATE TABLE applications AS
+    SELECT * FROM 'data/staging/credit_applications.parquet';
+
+-- CTE (Common Table Expression)
+WITH ranked AS (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY risk_tier ORDER BY income DESC) AS rn
+    FROM applications
+)
+SELECT * FROM ranked WHERE rn = 1;</code></pre>
+      </div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python"># Executar e obter DataFrame
+df = conn.execute("""
+    SELECT risk_tier, COUNT(*) as n
+    FROM 'data/marts/mart.parquet'
+    GROUP BY risk_tier
+""").fetchdf()
+
+# Parâmetro seguro — nunca interpole f-string em SQL
+tier = 'HIGH'
+df = conn.execute(
+    "SELECT * FROM tabela WHERE risk_tier = ?",
+    [tier]
+).fetchdf()
+
+# Registrar DataFrame pandas como tabela virtual
+conn.register('applications', df)
+conn.execute("SELECT COUNT(*) FROM applications WHERE age < 18").fetchone()
+
+# Atalho sql() — equivalente a execute()
+conn.sql("SELECT 1+1").fetchdf()</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Window functions · QUALIFY · ROW_NUMBER</code> <span class="summary-desc">análise por grupo sem reduzir linhas</span></summary>
+    <div class="doc-body">
+      <p>Window functions calculam valores usando um grupo de linhas sem colapsá-las. A cláusula <code>OVER (PARTITION BY ... ORDER BY ...)</code> define a janela.</p>
+      <dl class="doc-params">
+        <dt>ROW_NUMBER()</dt><dd>Número sequencial dentro da partição. 1, 2, 3… sem empates.</dd>
+        <dt>RANK()</dt><dd>Posição com empates — dois primeiros empatados dão RANK=1, próximo é RANK=3.</dd>
+        <dt>LAG(col, n)</dt><dd>Valor da linha <code>n</code> posições atrás. Útil para comparações temporais.</dd>
+        <dt>QUALIFY</dt><dd>Filtra resultado de window function direto no SELECT — sem subconsulta. Único em DuckDB/Snowflake.</dd>
+      </dl>
+      <div class="doc-tip"><code>QUALIFY ROW_NUMBER() OVER (...) = 1</code> é a forma idiomática do DuckDB para deduplicar sem CTE.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="SQL">
+<pre><code class="language-sql">-- Numerar linhas por partição
+SELECT applicant_id, age, monthly_income,
+       ROW_NUMBER() OVER (PARTITION BY risk_tier ORDER BY monthly_income DESC) AS rn
+FROM mart_credit_features;
+
+-- QUALIFY: filtrar o resultado da window function direto (sem subquery)
+SELECT *
+FROM 'data/staging/credit_applications.parquet'
+QUALIFY ROW_NUMBER() OVER (
+    PARTITION BY age, monthly_income, debt_ratio
+    ORDER BY 1
+) = 1;
+-- equivale a: "pega só a primeira ocorrência de cada combinação" — remove duplicatas
+
+-- Ranking de renda dentro de cada tier
+SELECT applicant_id, risk_tier, monthly_income,
+       RANK() OVER (PARTITION BY risk_tier ORDER BY monthly_income DESC) AS income_rank
+FROM mart_credit_features
+QUALIFY income_rank <= 3;    -- top 3 por tier
+
+-- LAG: comparar valor com linha anterior (útil em séries históricas)
+SELECT run_id, default_rate_pct,
+       LAG(default_rate_pct, 1) OVER (ORDER BY timestamp) AS prev_rate,
+       default_rate_pct - LAG(default_rate_pct, 1) OVER (ORDER BY timestamp) AS delta
+FROM 'data/monitoring/metrics_history.parquet';
+
+-- SUM acumulado (running total)
+SELECT applicant_id, monthly_income,
+       SUM(monthly_income) OVER (ORDER BY applicant_id) AS running_total
+FROM mart_credit_features;</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>CTEs · CREATE OR REPLACE VIEW · conn.register()</code> <span class="summary-desc">queries compostas e tabelas virtuais</span></summary>
+    <div class="doc-body">
+      <dl class="doc-params">
+        <dt>WITH cte AS (...)</dt><dd>Common Table Expression — dá nome a uma subquery. Torna queries longas legíveis sem repetição.</dd>
+        <dt>CREATE OR REPLACE VIEW</dt><dd>View temporária que pode ser referenciada em queries subsequentes. <code>OR REPLACE</code> reescreve sem erro se já existir.</dd>
+        <dt>conn.register(name, df)</dt><dd>Registra DataFrame pandas como tabela virtual — consulte-o com SQL sem salvar em disco.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="SQL">
+<pre><code class="language-sql">-- CTE simples — staging inline
+WITH staging AS (
+    SELECT age, monthly_income,
+           SeriousDlqin2yrs AS defaulted,
+           DebtRatio AS debt_ratio
+    FROM 'data/raw/cs-training.csv'
+    WHERE age BETWEEN 18 AND 100
+),
+features AS (
+    SELECT *,
+           CASE WHEN debt_ratio > 0.9 THEN 'HIGH'
+                WHEN debt_ratio > 0.5 THEN 'MEDIUM'
+                ELSE 'LOW' END AS risk_tier
+    FROM staging
+)
+SELECT risk_tier, COUNT(*) AS n,
+       ROUND(AVG(monthly_income), 2) AS avg_income
+FROM features
+GROUP BY risk_tier;
+
+-- CREATE OR REPLACE VIEW (usado em run_model())
+CREATE OR REPLACE VIEW stg_credit_applications AS
+    SELECT * FROM 'data/staging/credit_applications.parquet';
+
+-- Agora a mart pode fazer FROM stg_credit_applications
+SELECT * FROM stg_credit_applications WHERE age > 30;</code></pre>
+      </div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import duckdb
+
+conn = duckdb.connect()
+
+# Registrar DataFrame como tabela virtual (sem salvar em disco)
+import pandas as pd
+df = pd.read_parquet('data/marts/mart_credit_features.parquet')
+conn.register('mart', df)
+conn.execute("SELECT risk_tier, COUNT(*) FROM mart GROUP BY 1").df()
+
+# Padrão run_model: cria staging como view antes de rodar mart
+stg_sql = Path('models/stg_credit_applications.sql').read_text()
+conn.execute(f"CREATE OR REPLACE VIEW stg_credit_applications AS {stg_sql}")
+
+mart_sql = Path('models/mart_credit_features.sql').read_text()
+result   = conn.execute(mart_sql).df()   # mart usa FROM stg_credit_applications</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- FASTAPI                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="fastapi">
+  <div class="doc-section-title"><span class="lib-tag">FastAPI</span> API REST declarativa</div>
+
+  <details class="doc-entry">
+    <summary><code>FastAPI() · @app.get() · @app.post()</code> <span class="summary-desc">criar aplicação e definir rotas</span></summary>
+    <div class="doc-body">
+      <code class="sig">app = FastAPI(<span class="default">title='...'</span>, <span class="default">version='1.0'</span>)</code>
+      <code class="sig">@app.get(<span class="param">"/path"</span>)<br>def handler() <span class="ret">→ dict</span>:</code>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">from fastapi import FastAPI, HTTPException
+from datetime import datetime
+import pandas as pd
+
+app = FastAPI(title="Credit API", version="1.0.0")
+
+# Carrega dados uma vez ao subir — não a cada request
+df = pd.read_parquet('data/marts/mart_credit_features.parquet')
+
+# GET simples — retorna dict (serializado automaticamente para JSON)
+@app.get("/health")
+def health():
+    return {"status": "ok", "timestamp": datetime.now().isoformat(), "records": len(df)}
+
+# GET com path parameter — tipo define conversão + validação
+@app.get("/applicants/{applicant_id}")
+def get_applicant(applicant_id: str):
+    row = df[df['id'] == applicant_id]
+    if row.empty:
+        raise HTTPException(status_code=404, detail="Applicant not found")
+    return row.iloc[0].to_dict()
+
+# GET com query parameter — parâmetro da função não no path
+@app.get("/risk-summary")
+def risk_summary(tier: str = None, limit: int = 100):
+    subset = df if tier is None else df[df['risk_tier'] == tier]
+    return {
+        "total": len(subset),
+        "default_rate_pct": round(subset['defaulted'].mean() * 100, 2)
+    }
+
+# POST com body JSON usando Pydantic
+from pydantic import BaseModel
+
+class RunConfig(BaseModel):
+    n_records: int = 1000
+    output_path: str = "data/raw/bureau_api.json"
+
+@app.post("/run-ingestion")
+def run_ingestion(config: RunConfig):
+    # config.n_records, config.output_path disponíveis
+    return {"started": True, "n_records": config.n_records}</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>uvicorn</code> <span class="summary-desc">servidor ASGI — desenvolvimento e produção</span></summary>
+    <div class="doc-body">
+      <code class="sig">uvicorn <span class="param">módulo</span>:<span class="param">app</span> --host 0.0.0.0 --port 8000 --reload</code>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Shell">
+<pre><code class="language-bash"># Desenvolvimento (auto-reload ao salvar)
+uvicorn api.main:app --reload
+
+# Porta customizada
+uvicorn api.main:app --reload --port 8080
+
+# Produção — aceita conexões de qualquer interface
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+
+# Produção com múltiplos workers (paralelo)
+uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# Testar com curl
+# curl localhost:8000/health
+# curl "localhost:8000/risk-summary?tier=HIGH"
+# curl localhost:8000/docs     ← Swagger UI gerado automaticamente</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PYDANTIC                                                     -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="pydantic">
+  <div class="doc-section-title"><span class="lib-tag">pydantic</span> Validação de dados com type hints</div>
+
+  <details class="doc-entry">
+    <summary><code>BaseModel · Field · @field_validator</code> <span class="summary-desc">definir e validar schemas de dados</span></summary>
+    <div class="doc-body">
+      <code class="sig">from pydantic import BaseModel, Field, field_validator</code>
+      <p>Pydantic valida e converte dados automaticamente com base nas type hints. Usado pelo FastAPI para validar bodies de request, query params, e responses.</p>
+      <dl class="doc-params">
+        <dt>BaseModel</dt><dd>Classe base. Todos os atributos com type hints viram campos validados.</dd>
+        <dt>Field()</dt><dd>Metadados do campo: valor padrão, descrição, restrições (<code>ge</code>, <code>le</code>, <code>min_length</code>).</dd>
+        <dt>@field_validator</dt><dd>Validação customizada por campo. Retorna o valor transformado ou levanta <code>ValueError</code>.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">from pydantic import BaseModel, Field, field_validator
+from typing import Optional
+
+# Model básico
+class Applicant(BaseModel):
+    applicant_id: str
+    age: int
+    monthly_income: float
+    risk_tier: str
+
+# Instanciar — valida e converte automaticamente
+a = Applicant(applicant_id="APP-001", age="35", monthly_income=5000.0, risk_tier="LOW")
+# age="35" (str) → 35 (int) automaticamente
+
+# Com valores padrão e restrições
+class RunConfig(BaseModel):
+    n_records: int = Field(default=1000, ge=1, le=100_000,
+                           description="Quantidade de registros a gerar")
+    output_path: str = Field(default="data/raw/bureau_api.json")
+    include_nulls: bool = False
+
+# Validator customizado
+class CreditApplication(BaseModel):
+    age: int
+    monthly_income: Optional[float] = None
+
+    @field_validator('age')
+    @classmethod
+    def age_must_be_valid(cls, v):
+        if not (18 <= v <= 100):
+            raise ValueError(f'Idade inválida: {v}. Deve ser entre 18 e 100.')
+        return v
+
+# Serializar para dict ou JSON
+config = RunConfig(n_records=5000)
+config.model_dump()       # → {'n_records': 5000, 'output_path': '...', ...}
+config.model_dump_json()  # → '{"n_records": 5000, ...}'
+
+# Criar a partir de dict
+data = {"n_records": 2000, "include_nulls": True}
+config = RunConfig(**data)     # ou RunConfig.model_validate(data)</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PREFECT                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="prefect">
+  <div class="doc-section-title"><span class="lib-tag">Prefect</span> Orquestração de pipelines</div>
+
+  <details class="doc-entry">
+    <summary><code>@task · @flow</code> <span class="summary-desc">decoradores de orquestração</span></summary>
+    <div class="doc-body">
+      <dl class="doc-params">
+        <dt>@task</dt><dd>Unidade atômica. Prefect monitora estado (Pending→Running→Completed/Failed) e captura logs de cada task individualmente.</dd>
+        <dt>@flow</dt><dd>Orquestrador que chama tasks em sequência. Se uma task falhar, o flow para naquele ponto — não silenciosamente.</dd>
+        <dt>retries</dt><dd>Tentativas automáticas antes de marcar como Failed.</dd>
+      </dl>
+      <div class="doc-note">Tasks passam dados umas para as outras via retorno normal de função. O Prefect rastreia as dependências automaticamente a partir do grafo de chamadas.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">from prefect import task, flow
+import pandas as pd, subprocess
+
+@task(name="Ingest CSV", retries=2)
+def ingest(path: str):
+    df = pd.read_csv(path, index_col=0)
+    print(f"CSV: {len(df)} registros")
+    return df                                  # valor passado para a próxima task
+
+@task(name="Validate")
+def validate(df):
+    from src.ingestion import validate_dataframe
+    report = validate_dataframe(df)
+    print(f"Qualidade: {report}")
+    return report
+
+@task(name="Run Tests")
+def run_tests():
+    result = subprocess.run(['pytest', 'tests/', '-v'],
+                            capture_output=True, text=True)
+    print(result.stdout)
+    if result.returncode != 0:
+        raise Exception("Testes falharam — pipeline abortado")
+
+@flow(name="Credit Pipeline")
+def credit_pipeline():
+    df      = ingest("data/raw/cs-training.csv")  # executa e aguarda
+    report  = validate(df)                         # df passado como argumento
+    run_tests()                                    # executa por último
+    return report
+
+# Executar diretamente
+if __name__ == "__main__":
+    credit_pipeline()
+
+# Agendar (processo persistente com cron)
+# credit_pipeline.serve(name="daily", cron="0 6 * * *")</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SUBPROCESS + OS                                              -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="subprocess">
+  <div class="doc-section-title"><span class="lib-tag">subprocess</span> <span class="lib-tag">os</span> Processos externos e variáveis de ambiente</div>
+
+  <details class="doc-entry">
+    <summary><code>subprocess.run()</code> <span class="summary-desc">executar comando externo e capturar saída</span></summary>
+    <div class="doc-body">
+      <code class="sig">subprocess.run(<span class="param">['cmd', 'arg1']</span>, <span class="default">capture_output=False</span>, <span class="default">text=False</span>, <span class="default">check=False</span>) <span class="ret">→ CompletedProcess</span></code>
+      <dl class="doc-params">
+        <dt>args (lista)</dt><dd>Primeiro elemento = executável, demais = argumentos. Nunca passe como string única — vulnerabilidade de shell injection.</dd>
+        <dt>capture_output</dt><dd>Captura stdout e stderr. Sem isso, a saída vai direto para o terminal.</dd>
+        <dt>text=True</dt><dd>Decodifica stdout/stderr como string UTF-8. Sem isso, retorna bytes.</dd>
+        <dt>check=True</dt><dd>Levanta <code>CalledProcessError</code> automaticamente se returncode ≠ 0.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import subprocess
+
+# Rodar pytest e capturar saída
+result = subprocess.run(
+    ['pytest', 'tests/', '-v'],
+    capture_output=True,
+    text=True
+)
+print(result.stdout)
+if result.returncode != 0:
+    raise Exception(f"Testes falharam:\n{result.stderr}")
+
+# Verificar returncode — 0 = sucesso (convenção Unix)
+result = subprocess.run(['ls', '-lh', 'data/'], capture_output=True, text=True)
+if result.returncode == 0:
+    print(result.stdout)
+
+# Com check=True — levanta exceção automática em falha
+subprocess.run(['pytest', 'tests/'], check=True, capture_output=True, text=True)
+
+# Rodar script Python
+subprocess.run(['python', 'pipeline/flow.py'], check=True)
+
+# ERRADO — string única vulnerável a injection
+subprocess.run("ls -lh data/", shell=True)     # evite shell=True</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>os.environ.get()</code> <span class="summary-desc">ler variáveis de ambiente com segurança</span></summary>
+    <div class="doc-body">
+      <code class="sig">os.environ.get(<span class="param">key: str</span>, <span class="default">default=None</span>) <span class="ret">→ str | None</span></code>
+      <div class="doc-warning">Nunca hardcode API keys ou senhas no código — mesmo em projetos pessoais. Use variáveis de ambiente e <code>os.environ.get()</code>.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import os
+
+# Leitura segura — retorna None se não definida
+api_key = os.environ.get('ANTHROPIC_API_KEY')
+
+# Com default
+api_key = os.environ.get('ANTHROPIC_API_KEY', '')
+
+# Fail fast no startup — melhor que falhar tarde
+api_key = os.environ.get('ANTHROPIC_API_KEY')
+if not api_key:
+    raise ValueError("ANTHROPIC_API_KEY não está definida")
+
+# os.environ['KEY'] levanta KeyError se não existir — prefira .get()
+api_key = os.environ['ANTHROPIC_API_KEY']       # KeyError se ausente
+
+# Ler múltiplas variáveis
+config = {
+    'api_key': os.environ.get('ANTHROPIC_API_KEY'),
+    'env':     os.environ.get('ENV', 'development'),
+    'port':    int(os.environ.get('PORT', '8000')),
+}</code></pre>
+      </div>
+      <div class="code-wrap" data-lang="Shell">
+<pre><code class="language-bash"># Definir no terminal (só para a sessão atual)
+export ANTHROPIC_API_KEY="sk-ant-..."
+
+# Verificar se está definida
+echo $ANTHROPIC_API_KEY
+
+# Arquivo .env (com python-dotenv) — nunca commitar no git
+# ANTHROPIC_API_KEY=sk-ant-...
+# ENV=development
+
+# Carregar .env no Python
+# from dotenv import load_dotenv
+# load_dotenv()   # lê .env e popula os.environ</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- PYTEST                                                       -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="pytest">
+  <div class="doc-section-title"><span class="lib-tag">pytest</span> Testes automatizados</div>
+
+  <details class="doc-entry">
+    <summary><code>def test_*() · assert · pytest.raises()</code> <span class="summary-desc">escrever e rodar testes</span></summary>
+    <div class="doc-body">
+      <p>pytest descobre automaticamente qualquer função cujo nome começa com <code>test_</code>. O <code>assert</code> do Python puro é tudo o que você precisa — pytest reescreve as mensagens de erro para serem informativas.</p>
+      <div class="doc-tip">Instale: <code>pip install pytest</code>. Rode: <code>pytest tests/ -v</code>. O <code>-v</code> mostra o nome de cada teste.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import pandas as pd, pytest
+
+# Teste simples — assert que falha mostra os valores reais
+def test_soma():
+    assert 1 + 1 == 2
+
+def test_lista_nao_vazia():
+    resultado = [1, 2, 3]
+    assert len(resultado) > 0
+    assert 2 in resultado
+
+# Testar que exceção é levantada
+def test_divisao_por_zero():
+    with pytest.raises(ZeroDivisionError):
+        1 / 0
+
+# Testar com mensagem customizada (aparece no relatório ao falhar)
+def test_schema_parquet():
+    df = pd.read_parquet('data/marts/mart_credit_features.parquet')
+    assert 'risk_tier' in df.columns, "Coluna risk_tier ausente do mart"
+    assert len(df) > 0, "Mart está vazio"
+
+# Testar set de valores
+def test_risk_tier_values():
+    df = pd.read_parquet('data/marts/mart_credit_features.parquet')
+    validos = {'LOW', 'MEDIUM', 'HIGH'}
+    encontrados = set(df['risk_tier'].unique())
+    assert encontrados.issubset(validos), f"Valores inválidos: {encontrados - validos}"</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>@pytest.fixture · @pytest.mark.parametrize</code> <span class="summary-desc">dados compartilhados e testes em lote</span></summary>
+    <div class="doc-body">
+      <dl class="doc-params">
+        <dt>@pytest.fixture</dt><dd>Função que prepara dados ou recursos para os testes. Injetada automaticamente pelo nome do parâmetro. Com <code>scope='module'</code>, executa uma vez por arquivo — economiza tempo em I/O (ler Parquet).</dd>
+        <dt>@pytest.mark.parametrize</dt><dd>Roda o mesmo teste com múltiplos inputs. Cada par de valores gera um teste separado no relatório.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import pandas as pd, pytest
+
+# Fixture — carrega Parquet uma vez para todos os testes do módulo
+@pytest.fixture(scope='module')
+def mart():
+    return pd.read_parquet('data/marts/mart_credit_features.parquet')
+
+# Fixture injetada pelo nome do parâmetro
+def test_no_nulls(mart):
+    assert mart['risk_tier'].isnull().sum() == 0
+
+def test_record_count(mart):
+    assert len(mart) > 1000, "Mart tem menos registros do que o esperado"
+
+# Fixture com múltiplos valores — testa cada coluna crítica separada
+@pytest.fixture(params=['applicant_id', 'defaulted', 'risk_tier', 'total_late_payments'])
+def critical_col(request):
+    return request.param
+
+def test_critical_cols_no_nulls(mart, critical_col):
+    count = mart[critical_col].isnull().sum()
+    assert count == 0, f"{critical_col} tem {count} nulos"
+
+# parametrize — mais conciso para o mesmo padrão
+@pytest.mark.parametrize("col", ['applicant_id', 'defaulted', 'risk_tier'])
+def test_col_no_nulls(mart, col):
+    assert mart[col].isnull().sum() == 0
+
+# parametrize — testar múltiplos pares (input, esperado)
+@pytest.mark.parametrize("tier, max_rate", [
+    ('LOW',    0.10),
+    ('MEDIUM', 0.30),
+    ('HIGH',   1.00),
+])
+def test_default_rate_by_tier(mart, tier, max_rate):
+    subset = mart[mart['risk_tier'] == tier]
+    rate = subset['defaulted'].mean()
+    assert rate <= max_rate, f"Default rate de {tier}: {rate:.2%} > {max_rate:.2%}"</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- LOGGING                                                      -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="logging">
+  <div class="doc-section-title"><span class="lib-tag">logging</span> Logs estruturados</div>
+
+  <details class="doc-entry">
+    <summary><code>logging.getLogger() · basicConfig() · níveis</code> <span class="summary-desc">logging padrão da stdlib</span></summary>
+    <div class="doc-body">
+      <p>O módulo <code>logging</code> da stdlib tem 5 níveis: <code>DEBUG</code> (10) → <code>INFO</code> (20) → <code>WARNING</code> (30) → <code>ERROR</code> (40) → <code>CRITICAL</code> (50). Só mensagens acima do nível configurado são emitidas.</p>
+      <dl class="doc-params">
+        <dt>getLogger(name)</dt><dd>Retorna o logger com esse nome (hierárquico por ponto: <code>'pipeline.ingest'</code>). Loggers com o mesmo nome são o mesmo objeto.</dd>
+        <dt>basicConfig()</dt><dd>Configura o logger root — afeta todos os módulos. Use apenas em scripts, não em bibliotecas.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import logging
+
+# Configuração básica (use só em scripts/main)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(name)s | %(levelname)s | %(message)s'
+)
+
+# Logger por módulo (boa prática)
+log = logging.getLogger(__name__)   # nome = 'src.ingestion', 'pipeline.flow', etc.
+
+# 5 níveis
+log.debug("detalhe de depuração — não aparece em INFO")
+log.info("CSV carregado com 150000 linhas")
+log.warning("MonthlyIncome tem 19.8% de nulos — verificar")
+log.error("Falha ao conectar no banco: %s", str(e))
+log.critical("Pipeline abortado — dado inválido detectado")
+
+# Logar exceção com traceback completo
+try:
+    df = pd.read_csv('arquivo.csv')
+except FileNotFoundError:
+    log.exception("Arquivo não encontrado")  # inclui traceback automaticamente
+
+# Dados extras no log
+log.info("Ingestão concluída", extra={"records": 150000, "nulls_pct": 19.8})
+
+# Verificar nível antes de montar msg cara (evita f-string desnecessária)
+if log.isEnabledFor(logging.DEBUG):
+    log.debug("Schema: %s", df.dtypes.to_dict())</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>python-json-logger · run_id · Cloud Logging</code> <span class="summary-desc">logs estruturados em JSON para produção</span></summary>
+    <div class="doc-body">
+      <code class="sig">pip install python-json-logger</code>
+      <p>Logs em texto são legíveis para humanos. Logs em JSON são indexáveis por ferramentas como Cloud Logging, Datadog, Loki. Com um <code>run_id</code> único por execução, você filtra todos os logs de um pipeline específico.</p>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import logging, uuid
+from pythonjsonlogger import jsonlogger
+
+def get_logger(name: str, run_id: str = None) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+    if not logger.handlers:             # guard contra handlers duplicados
+        handler = logging.StreamHandler()
+        fmt = jsonlogger.JsonFormatter(
+            fmt='%(asctime)s %(name)s %(levelname)s %(message)s',
+            rename_fields={
+                'asctime':   'timestamp',
+                'levelname': 'level',
+                'message':   'event'
+            }
+        )
+        handler.setFormatter(fmt)
+        logger.addHandler(handler)
+    return logger
+
+# Uso em flow.py
+RUN_ID = str(uuid.uuid4())[:8]          # ex: 'a3f7b1c2'
+log = get_logger("pipeline", RUN_ID)
+
+log.info("CSV ingerido", extra={"run_id": RUN_ID, "records": 150_000})
+# → {"timestamp": "2025-04-17T14:30:00", "name": "pipeline",
+#    "level": "INFO", "event": "CSV ingerido",
+#    "run_id": "a3f7b1c2", "records": 150000}
+
+# Filtrar no Cloud Logging por run_id
+# jsonPayload.run_id="a3f7b1c2"
+
+# Validar que output é JSON válido linha por linha
+# python pipeline/flow.py | python -m json.tool</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- RANDOM + FAKER                                               -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="doc-section" id="random">
+  <div class="doc-section-title"><span class="lib-tag">random</span> <span class="lib-tag">Faker</span> Dados aleatórios e mocks</div>
+
+  <details class="doc-entry">
+    <summary><code>random.randint() · choice() · uniform() · seed()</code> <span class="summary-desc">geração controlada de números aleatórios</span></summary>
+    <div class="doc-body">
+      <dl class="doc-params">
+        <dt>randint(a, b)</dt><dd>Inteiro aleatório entre <code>a</code> e <code>b</code> inclusive. Ambos os extremos incluídos — diferente do <code>range()</code>.</dd>
+        <dt>choice(seq)</dt><dd>Elemento aleatório de uma sequência. Levanta <code>IndexError</code> em sequência vazia.</dd>
+        <dt>choices(seq, weights, k)</dt><dd>Como <code>choice</code> mas com pesos e quantidade — permite distribuições tendenciosas.</dd>
+        <dt>uniform(a, b)</dt><dd>Float aleatório no intervalo <code>[a, b]</code>.</dd>
+        <dt>seed(n)</dt><dd>Fixa a semente — toda sequência gerada depois é reproducível. Essencial para testes.</dd>
+      </dl>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">import random
+
+# Seed para reproducibilidade (testes, demos)
+random.seed(42)
+
+# Inteiros
+random.randint(0, 1000)          # bureau_score entre 0 e 1000 (inclusive)
+random.randint(18, 80)           # idade aleatória
+
+# Float
+random.uniform(0.0, 1.0)        # revolving_utilization entre 0 e 1
+random.uniform(0.5, 3.0)        # debt_ratio
+
+# Escolha de lista
+random.choice(['LOW', 'MEDIUM', 'HIGH'])
+
+# Escolha com pesos (70% LOW, 20% MEDIUM, 10% HIGH — distribuição realista)
+tier = random.choices(
+    ['LOW', 'MEDIUM', 'HIGH'],
+    weights=[70, 20, 10],
+    k=1
+)[0]
+
+# Lista de N escolhas com pesos
+tiers = random.choices(['LOW', 'MEDIUM', 'HIGH'], weights=[70, 20, 10], k=5000)
+
+# Embaralhar lista in-place
+deck = list(range(1000))
+random.shuffle(deck)
+
+# Sample sem reposição (subconjunto)
+amostra = random.sample(range(150000), k=1000)  # 1000 índices únicos</code></pre>
+      </div>
+    </div>
+  </details>
+
+  <details class="doc-entry">
+    <summary><code>Faker</code> <span class="summary-desc">gerar dados realistas para mocks e testes</span></summary>
+    <div class="doc-body">
+      <code class="sig">from faker import Faker<br>fake = Faker('<span class="param">locale</span>')</code>
+      <p>Gera dados plausíveis: nomes, CPFs, endereços, datas, emails. Locale <code>'pt_BR'</code> produz dados no formato brasileiro.</p>
+      <div class="doc-note">Instale com <code>pip install faker</code>. Não use em produção — apenas para desenvolvimento e testes.</div>
+      <div class="doc-label">Exemplos</div>
+      <div class="code-wrap" data-lang="Python">
+<pre><code class="language-python">from faker import Faker
+import random, hashlib
+
+fake = Faker('pt_BR')
+random.seed(42)
+Faker.seed(42)   # para reproducibilidade do Faker também
+
+# Dados pessoais
+fake.name()                      # 'Carlos Eduardo Ferreira'
+fake.cpf()                       # '123.456.789-09'
+fake.email()                     # 'carlos@exemplo.com.br'
+fake.phone_number()              # '(11) 9 8765-4321'
+
+# Datas e timestamps
+fake.date_between(start_date='-5y', end_date='today')   # datetime.date
+fake.date_time_this_year()       # datetime.datetime
+
+# Padrão do projeto — gerar registros de mock API
+def make_record(i):
+    cpf = fake.cpf().replace('.', '').replace('-', '')
+    return {
+        "applicant_id": f"APP-{i+1:06d}",             # APP-000001
+        "cpf_hash":     hashlib.sha256(cpf.encode()).hexdigest()[:16],
+        "bureau_score": random.randint(0, 1000),
+        "credit_limit": round(random.uniform(1000, 50000), 2),
+        "timestamp":    fake.date_time_this_year().isoformat(),
+        "tier":         random.choices(['LOW','MEDIUM','HIGH'], weights=[70,20,10])[0]
+    }
+
+records = [make_record(i) for i in range(5000)]</code></pre>
+      </div>
+    </div>
+  </details>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-docker.min.js"></script>
+<script>
+// ── Copy to clipboard ─────────────────────────────────────────
+document.querySelectorAll('.code-wrap').forEach(wrap => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.textContent = 'copiar';
+  btn.title = 'Copiar código';
+  btn.onclick = () => {
+    const code = wrap.querySelector('code');
+    const text = code.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'copiado ✓';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'copiar'; btn.classList.remove('copied'); }, 1500);
+    }).catch(() => {
+      const sel = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(code);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+  };
+  wrap.appendChild(btn);
+});
+</script>
+<script src="shared.js"></script>
+</body>
+</html>

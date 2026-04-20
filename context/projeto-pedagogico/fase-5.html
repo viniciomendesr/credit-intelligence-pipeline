@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fase 5 — Modelagem ML + Benchmarking</title>
+<link rel="stylesheet" href="style.css">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet" id="prism-theme">
+</head>
+<body data-page-key="recall_fase5">
+<div class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-brand">⚡ Credit Pipeline</span>
+    <nav class="topbar-nav">
+      <a href="index.html">Hub</a>
+      <a href="fase-1.html">Fase 1</a>
+      <a href="fase-2.html">Fase 2</a>
+      <a href="fase-3.html">Fase 3</a>
+      <a href="fase-4.html">Fase 4</a>
+      <a href="bonus-fase4.html">Bônus F4 ✨</a>
+      <a href="fase-5.html" class="active">Fase 5</a>
+      <a href="bonus-fase5.html">Bônus F5 ✨</a>
+      <a href="docs.html">Docs 📚</a>
+    </nav>
+  </div>
+  <div class="topbar-right">
+    <button class="btn-theme" onclick="toggleTheme()"><span id="theme-icon">🌙</span> <span id="theme-label">Dark</span></button>
+  </div>
+</div>
+<div class="container">
+
+<div class="phase-header">
+  <div class="phase-label">Fase 5 · Modelagem ML + Benchmarking contra Baseline Rule-Based</div>
+  <div class="phase-question">"Até aqui, a classificação de risco era uma regra SQL de 3 linhas. Quanto um modelo treinado no mesmo mart realmente ganha contra isso? E como você versiona esse modelo em produção?"</div>
+</div>
+
+<p><strong>Entrega:</strong> <code>src/train.py</code> que treina um XGBoost no mart pra prever <code>defaulted</code>, calcula AUC + precision@k + log-loss, compara contra o baseline rule-based (<code>risk_tier == 'HIGH'</code>), salva <code>models/model.pkl</code> calibrado e <code>reports/model_metrics.json</code> com a comparação, e sobe o artefato pro bucket GCS.</p>
+<p><strong>Pré-requisito:</strong> <code>mart_credit_features.parquet</code> gerado (Fase 2) com coluna <code>defaulted</code> como label. Bucket GCS criado (ver Fase 4.3). Libs: <code>scikit-learn</code>, <code>xgboost</code>, <code>joblib</code>.</p>
+
+<hr>
+
+<div class="phase-flow">
+  <div class="phase-flow-title">🔗 Como os desafios se conectam nesta fase</div>
+  <div class="flow-steps">
+    <div class="flow-step">
+      <div class="flow-step-num">5.1 · src/train.py</div>
+      <div class="flow-step-label">Prep + Split</div>
+      <div class="flow-step-out">Carrega mart, seleciona features (exclui leak), split estratificado 80/20 com random_state fixo. Guarda o conjunto de teste separado do treino.</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">5.2 · XGBoost + calibração</div>
+      <div class="flow-step-label">Fit + Calibrate</div>
+      <div class="flow-step-out">Treina XGBoost, calibra probabilidades (Platt ou isotonic). Salva <code>models/model.pkl</code> com metadados de versão.</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">5.3 · Métricas + benchmark</div>
+      <div class="flow-step-label">Compare</div>
+      <div class="flow-step-out">Calcula AUC/precision@k/log-loss no test set pro XGBoost E pro baseline rule-based. Gera <code>reports/model_metrics.json</code> com a comparação lado a lado.</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-step">
+      <div class="flow-step-num">5.4 · gcloud storage</div>
+      <div class="flow-step-label">Versioning no GCS</div>
+      <div class="flow-step-out">Sobe <code>model.pkl</code> pro bucket <code>gs://credit-pipeline-demo-models/</code> com nome <code>model-&lt;git-sha&gt;.pkl</code>. Tag "latest" aponta pra versão ativa.</div>
+    </div>
+  </div>
+</div>
+
+<div class="connect-note">
+  <strong>Por que esta fase existe?</strong> Até aqui o projeto tinha "inteligência" apenas nominalmente — a classificação de risco vinha de uma regra SQL de 3 linhas. Essa fase finalmente <strong>usa o label real do Kaggle</strong> (a coluna <code>defaulted</code>) como target de um modelo supervisionado e responde, com números concretos, a pergunta clássica: "quanto um modelo ganha vs uma regra boba?". O artefato resultante (<code>model.pkl</code> no GCS) é o que o Bônus Fase 5 vai consumir pra trocar a heurística de desvio-vs-mediana por SHAP values principiados.
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 5.1 — Preparação do dataset + split estratificado <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/train.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase5" data-challenge="5.1" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> <code>mart_credit_features.parquet</code></span>
+      <span class="io-badge">📤 <strong>Saída:</strong> <code>X_train, X_test, y_train, y_test</code> em memória</span>
+      <span class="io-badge">🔗 <strong>Usado por:</strong> 5.2 (fit) e 5.3 (avaliação)</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Função <code>prepare_dataset(mart_path)</code> em <code>src/train.py</code> que carrega o mart, seleciona features, e faz split 80/20 estratificado por <code>defaulted</code>.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Features (X):</strong> tudo do mart <em>exceto</em> <code>applicant_id</code> (chave), <code>defaulted</code> (label), <code>risk_tier</code> (vazamento — deriva da regra que queremos bater), <code>loaded_at</code> (metadado), e <code>has_90day_default</code> (vazamento direto do label)</li>
+      <li><strong>Target (y):</strong> coluna <code>defaulted</code> — binária</li>
+      <li><strong>Split:</strong> <code>train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)</code> — estratificação é crítica porque o dataset é desbalanceado (~6.76% positivos)</li>
+      <li><strong>Dtype:</strong> garantir que todas features sejam numéricas — XGBoost não aceita object/string sem transformar</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que excluir <code>risk_tier</code> das features?</strong> A regra SQL da Fase 2 derivou <code>risk_tier</code> a partir de <code>revolving_utilization</code>, <code>late_30_59_days</code>, e <code>late_90_days</code>. Se a gente alimenta <code>risk_tier</code> como feature, o modelo só tem que "reproduzir a regra" — não consegue descobrir padrão melhor. O propósito desta fase é descobrir um padrão melhor, não memorizar o existente. Excluir a coluna força o modelo a reaprender as interações a partir das features primárias.
+    </div>
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>(a) <code>y_train.mean()</code> e <code>y_test.mean()</code> devem ser ~0.068 (estratificação funcionando). (b) Número de features em <code>X_train.columns</code> é igual a número de colunas do mart menos 5 (as excluídas). (c) Sem <code>NaN</code> em <code>X_train.dtypes</code> — todas numéricas.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Train set ~115k linhas, test set ~29k linhas, ~6.8% positivos em ambos, ~11 features numéricas. Rodar duas vezes com mesmo <code>random_state</code> produz split idêntico — reprodutibilidade garantida.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import pandas as pd
+from sklearn.model_selection import train_test_split
+
+EXCLUDE_COLS = {"applicant_id", "defaulted", "risk_tier", "loaded_at", "has_90day_default"}
+
+def prepare_dataset(mart_path: str = "data/marts/mart_credit_features.parquet"):
+    df = pd.read_parquet(mart_path)
+    feature_cols = [c for c in df.columns if c not in EXCLUDE_COLS]
+    X = df[feature_cols].copy()
+    y = df["defaulted"].astype(int)
+    return train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 5.2 — Treinar XGBoost + calibração de probabilidade <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/train.py</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase5" data-challenge="5.2" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> <code>X_train, y_train</code></span>
+      <span class="io-badge">📤 <strong>Saída:</strong> <code>models/model.pkl</code> calibrado + metadados</span>
+      <span class="io-badge">🔗 <strong>Consumido por:</strong> 5.3 (métricas) + Bônus F5 (SHAP)</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Função <code>train_model(X_train, y_train)</code> que treina um XGBoost classifier, aplica calibração de probabilidade via <code>CalibratedClassifierCV</code>, e salva o resultado em <code>models/model.pkl</code> junto com metadados (features, data, version).</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Classifier base:</strong> <code>XGBClassifier(n_estimators=200, max_depth=5, learning_rate=0.1, scale_pos_weight=~13)</code> — <code>scale_pos_weight</code> compensa o desbalanceamento (negatives/positives ≈ 13)</li>
+      <li><strong>Calibração:</strong> <code>CalibratedClassifierCV(xgb, method='isotonic', cv=3)</code> — XGBoost por default retorna probabilidades mal calibradas; isotonic regression ajusta pra <code>predict_proba</code> refletir frequência real</li>
+      <li><strong>Persistência:</strong> <code>joblib.dump({'model': model, 'features': feature_cols, 'trained_at': iso_now, 'git_sha': sha})</code> — guardar as features junto evita ordem trocada em produção</li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que calibrar?</strong> XGBoost retorna scores que ordenam bem (ranking correto) mas não são probabilidades reais — um score de 0.8 não significa "80% chance de default". Calibração faz essa correção: depois da calibração, de 100 casos com score 0.8, aproximadamente 80 vão inadimplir. Pra narrativa do Bônus F5 ("sua probabilidade estimada é de 34%"), calibração é pré-requisito. Sem isso, a narrativa mente.
+    </div>
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>(a) <code>model.predict_proba(X_test)[:, 1].mean()</code> deve ficar próximo de <code>y_test.mean()</code> (≈0.068). (b) <code>model.predict_proba(X_test)</code> retorna valores em [0, 1] — sem negativos ou &gt;1. (c) <code>joblib.load("models/model.pkl")</code> recarrega e roda predict sem warnings de versão.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Modelo serializado em ~5-10 MB. Tempo de fit local: 30s-2min dependendo do hardware. Predict em 29k linhas &lt;1s.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import joblib, subprocess
+from datetime import datetime
+from pathlib import Path
+from sklearn.calibration import CalibratedClassifierCV
+from xgboost import XGBClassifier
+
+def train_model(X_train, y_train, out_path="models/model.pkl"):
+    scale = (len(y_train) - y_train.sum()) / y_train.sum()  # ~13
+    base = XGBClassifier(
+        n_estimators=200, max_depth=5, learning_rate=0.1,
+        scale_pos_weight=scale, eval_metric="logloss",
+        random_state=42, n_jobs=-1,
+    )
+    calibrated = CalibratedClassifierCV(base, method="isotonic", cv=3)
+    calibrated.fit(X_train, y_train)
+
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    sha = subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode().strip()
+    joblib.dump({
+        "model": calibrated,
+        "features": list(X_train.columns),
+        "trained_at": datetime.now().isoformat(),
+        "git_sha": sha,
+    }, out_path)
+    return calibrated</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 5.3 — Métricas + benchmark vs. baseline rule-based <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· arquivo: <code>src/train.py</code> + <code>reports/model_metrics.json</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase5" data-challenge="5.3" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> modelo treinado + <code>X_test, y_test</code> + mart completo</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> <code>reports/model_metrics.json</code> + print comparativo</span>
+      <span class="io-badge">🔗 <strong>Usado em:</strong> demo da Fase 5 + narrativa de entrevista</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Função <code>evaluate_and_benchmark(model, X_test, y_test, df_test)</code> que calcula 3 métricas <strong>para o modelo</strong> e <strong>para o baseline rule-based</strong>, e escreve o comparativo em JSON.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Métricas do modelo ML:</strong> <code>roc_auc_score(y_test, y_proba)</code>, <code>precision_at_k</code> para k=10%/20% (os N% com maior <code>pred_prob</code> e a precision lá), <code>log_loss(y_test, y_proba)</code></li>
+      <li><strong>Métricas do baseline rule-based:</strong> tratar <code>risk_tier == 'HIGH'</code> como predição positiva. AUC não é bem-definido (saída binária), mas dá pra calcular AUC tratando a ordem <code>LOW &lt; MEDIUM &lt; HIGH</code> como score ordinal. Precision@k vira precision direta nos 13% de HIGH.</li>
+      <li><strong>JSON de saída:</strong> <code>{"model": {...}, "baseline_rule": {...}, "delta": {auc: ..., ...}, "n_test": ..., "pos_rate_test": ..., "trained_at": ...}</code></li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que precision@k e não só accuracy?</strong> Dataset com 6.8% de positivos: modelo que sempre prediz "NÃO default" acerta 93.2% das vezes. Accuracy é inútil. Precision@k=20% responde "dos 20% que o modelo MAIS suspeita, quantos realmente inadimplem?" — métrica de produto (se você só tem orçamento pra negar 20%, quantos verdadeiros positivos você pega?). É como times de risco pensam.
+    </div>
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>(a) JSON tem chaves <code>model.auc</code>, <code>baseline_rule.auc</code>, <code>delta.auc</code> — o último deve ser positivo (XGBoost &gt; rule). (b) <code>model.precision_at_20</code> deve ser &gt; <code>pos_rate_test</code> (modelo melhor que random). (c) Print no console formato <code>"AUC: XGB 0.862 vs rule 0.743 (+0.119)"</code>.</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>AUC do XGBoost geralmente fica em 0.82-0.88 nesse dataset (competition winners chegaram a ~0.87). AUC do baseline rule-based ordinal fica em 0.70-0.76. Delta esperado: +0.10 a +0.15. Precision@k=20% típico do XGB: 0.18-0.22 (2-3x acima do pos_rate).</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-python">import json
+from pathlib import Path
+from sklearn.metrics import roc_auc_score, log_loss
+
+TIER_ORDINAL = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
+
+def precision_at_k(y_true, scores, k_pct):
+    n = int(len(y_true) * k_pct)
+    idx = scores.argsort()[::-1][:n]
+    return y_true.iloc[idx].mean() if hasattr(y_true, "iloc") else y_true[idx].mean()
+
+def evaluate_and_benchmark(model, X_test, y_test, df_test, out="reports/model_metrics.json"):
+    y_proba = model.predict_proba(X_test)[:, 1]
+    rule_score = df_test.loc[X_test.index, "risk_tier"].map(TIER_ORDINAL).values
+
+    result = {
+        "n_test": len(y_test),
+        "pos_rate_test": float(y_test.mean()),
+        "model": {
+            "auc": float(roc_auc_score(y_test, y_proba)),
+            "log_loss": float(log_loss(y_test, y_proba)),
+            "precision_at_10": float(precision_at_k(y_test, y_proba, 0.10)),
+            "precision_at_20": float(precision_at_k(y_test, y_proba, 0.20)),
+        },
+        "baseline_rule": {
+            "auc": float(roc_auc_score(y_test, rule_score)),
+            "precision_at_tier_high": float(y_test[df_test.loc[X_test.index, "risk_tier"] == "HIGH"].mean()),
+        },
+    }
+    result["delta"] = {
+        "auc": result["model"]["auc"] - result["baseline_rule"]["auc"],
+    }
+    Path(out).parent.mkdir(exist_ok=True)
+    Path(out).write_text(json.dumps(result, indent=2, ensure_ascii=False))
+    print(f'AUC: XGB {result["model"]["auc"]:.3f} vs rule {result["baseline_rule"]["auc"]:.3f} (+{result["delta"]["auc"]:.3f})')
+    return result</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="challenge">
+  <div class="challenge-header">Desafio 5.4 — Versionamento do modelo no GCS <span style="font-weight:400;color:var(--muted);font-size:0.8rem;">· ferramenta: <code>gcloud storage</code></span>
+    <label class="progress-check" title="Marcar como concluído"><input type="checkbox" data-phase="fase5" data-challenge="5.4" onchange="ProgressTracker.toggle(this)"><span class="progress-check-label">concluído</span></label>
+  </div>
+  <div class="challenge-body">
+    <div class="challenge-io">
+      <span class="io-badge">📥 <strong>Entrada:</strong> <code>models/model.pkl</code> + SHA do commit atual</span>
+      <span class="io-badge">📤 <strong>Saída:</strong> <code>gs://credit-pipeline-demo-models/model-&lt;sha&gt;.pkl</code> + <code>model-latest.pkl</code></span>
+      <span class="io-badge">🔗 <strong>Consumido por:</strong> API carrega no startup (Bônus F5)</span>
+    </div>
+    <span class="tag tag-build">🎯 O que construir</span>
+    <p>Bucket GCS dedicado pra artefatos de modelo (separado do bucket do mart) + convenção de nome que versiona por SHA do commit. <code>model-latest.pkl</code> é um "alias" pra versão ativa.</p>
+    <ul style="margin: 0.5rem 0 0.75rem; padding-left: 1.2rem; font-size: 0.9rem; line-height: 1.8;">
+      <li><strong>Criar bucket:</strong> <code>gcloud storage buckets create gs://credit-pipeline-demo-models --location=us-central1 --uniform-bucket-level-access --default-storage-class=STANDARD</code></li>
+      <li><strong>Upload versionado:</strong> <code>SHA=$(git rev-parse --short HEAD); gcloud storage cp models/model.pkl gs://credit-pipeline-demo-models/model-$SHA.pkl</code></li>
+      <li><strong>Atualizar "latest":</strong> <code>gcloud storage cp gs://credit-pipeline-demo-models/model-$SHA.pkl gs://credit-pipeline-demo-models/model-latest.pkl</code> — é uma cópia explícita, não symlink; cloud storage não tem symlink</li>
+      <li><strong>Grant read pra SA do Cloud Run:</strong> <code>gcloud storage buckets add-iam-policy-binding gs://credit-pipeline-demo-models --member=serviceAccount:credit-pipeline-sa@... --role=roles/storage.objectViewer</code></li>
+    </ul>
+    <div class="connect-note">
+      <strong>Por que versionar por SHA e não por timestamp?</strong> Com SHA você consegue rastrear <em>qual código treinou este modelo</em> — basta <code>git checkout</code> do SHA pra reproduzir bit-a-bit. Timestamp perde essa conexão (se você treinou duas vezes no mesmo dia sem commit, qual data pegou?). Regra: artefatos de produção têm <strong>hash rastreável do código-fonte</strong>, não do wall clock.
+    </div>
+    <span class="tag tag-criteria">✅ Como testar</span>
+    <p>(a) <code>gcloud storage ls gs://credit-pipeline-demo-models/</code> mostra os dois arquivos (versionado e latest). (b) <code>joblib.load</code> do arquivo baixado funciona. (c) SA do Cloud Run consegue baixar (testar com <code>gcloud auth application-default login</code> com impersonation, ou direto no deploy do Bônus F5).</p>
+    <span class="tag tag-expected">🎯 Expectativa de resultado</span>
+    <p>Bucket de modelos populado com ≥1 versão + latest. Custo: ~5-10 MB × R$0,10/GB/mês = desprezível. Pattern fica pronto pra retreinos futuros adicionarem novas versões sem apagar as antigas — rollback de modelo vira <code>cp model-&lt;sha-antigo&gt;.pkl model-latest.pkl</code>.</p>
+    <details>
+      <summary>📖 Referência — só abra após sua tentativa</summary>
+      <pre><code class="language-bash"># Criar bucket (uma vez)
+gcloud storage buckets create gs://credit-pipeline-demo-models \
+  --project=credit-pipeline-demo \
+  --location=us-central1 \
+  --uniform-bucket-level-access \
+  --default-storage-class=STANDARD
+
+# Upload versionado + latest (toda vez que treinar)
+SHA=$(git rev-parse --short HEAD)
+gcloud storage cp models/model.pkl gs://credit-pipeline-demo-models/model-$SHA.pkl
+gcloud storage cp models/model.pkl gs://credit-pipeline-demo-models/model-latest.pkl
+
+# IAM (uma vez) — SA do Cloud Run precisa ler
+gcloud storage buckets add-iam-policy-binding \
+  gs://credit-pipeline-demo-models \
+  --member=serviceAccount:credit-pipeline-sa@credit-pipeline-demo.iam.gserviceaccount.com \
+  --role=roles/storage.objectViewer</code></pre>
+    </details>
+  </div>
+</div>
+
+<div class="variations">
+  <div class="variations-title">⚡ Variações deliberadas — escreva sua previsão antes de testar</div>
+  <ul class="checklist">
+    <li>Remove a calibração (<code>CalibratedClassifierCV</code>) e compara a distribuição de <code>predict_proba</code> antes e depois. O AUC muda? A média muda? Qual é a consequência prática disso na narrativa do Bônus F5?</li>
+    <li>Treina um <code>LogisticRegression</code> no lugar do XGBoost. O AUC cai quanto? Vale a simplicidade? (Dica: modelos lineares nesse dataset costumam ficar em AUC ~0.80 — a diferença é real mas pequena.)</li>
+    <li>Inclui <code>risk_tier</code> como feature e vê o que acontece. O AUC sobe bastante (leakage positivo)? Por quê isso é ruim mesmo parecendo bom?</li>
+    <li>Salva também <code>model-previous.pkl</code> (versão anterior) antes de sobrescrever <code>latest</code>. Qual é a vantagem operacional disso pra rollback rápido sem precisar do SHA?</li>
+  </ul>
+</div>
+
+<div class="blank-test">
+  <strong>Teste da página em branco:</strong> descreve em voz alta por que <code>risk_tier</code> não pode virar feature, e por que precision@k=20% é métrica melhor que accuracy pra esse problema. Se travar em alguma delas, o ponto não foi internalizado.
+</div>
+
+<div class="page-nav">
+  <a class="btn-nav" href="bonus-fase4.html">← Bônus Fase 4: v1 rule-based</a>
+  <a class="btn-nav" href="bonus-fase5.html">Bônus Fase 5: v2 modelo ML →</a>
+</div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="shared.js"></script>
+</body>
+</html>
