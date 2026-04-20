@@ -2,9 +2,7 @@
 
 Pipeline de dados financeiros de ponta a ponta — do dado bruto à decisão de
 crédito explicável em produção. Simula o dia a dia de engenharia de
-dados + engenharia de IA em um **motor de crédito B2B** (empresa genérica
-que entrega camada de decisão de crédito para SaaS verticais — imobiliárias,
-edtechs, healthtechs — conforme a regulação brasileira).
+dados + engenharia de IA aplicada a análise de risco de crédito.
 
 ---
 
@@ -49,8 +47,8 @@ Detalhes estratégicos da abordagem e reflexões pós-implementação ficam em
 
 ## Domínio simulado
 
-Motor de crédito B2B operando no Brasil: recebe solicitações de crédito via
-API interna de SaaS parceiros, aplica um pipeline de risco, e retorna:
+Sistema de análise de crédito operando no Brasil: recebe solicitações via
+API, aplica um pipeline de risco, e retorna:
 
 - **Decisão** (APROVADO / APROVADO_COM_LIMITE / NEGADO)
 - **Probabilidade calibrada de inadimplência** (ML)

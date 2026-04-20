@@ -49,7 +49,7 @@ na hora da demonstração.
   - `key_factors` com 3 entradas — cada uma traz `value`, `median`,
     `direction`.
   - `narrative` em PT-BR citando esses valores.
-- Fala: "Decisão em segundos. Se um SaaS parceiro (imobiliária, edtech)
+- Fala: "Decisão em segundos. Se um sistema cliente (aplicação frontend, outro backend)
   vai montar a tela de aprovação ou negativa, essa `narrative` cumpre
   a Resolução 4.935/Bacen — o tomador tem direito de saber por quê."
 
@@ -101,7 +101,7 @@ regex acha todo número na narrativa, cada um precisa bater com algum
 Haiku 4.5 em todos os tiers hoje; variação razoável seria Haiku para
 LOW/MEDIUM e Sonnet só para HIGH (decisão de negativa é a mais
 sensível legalmente). O campo `_usage` no response carrega
-`input_tokens` e `output_tokens` — permite dashboard de custo por SaaS
+`input_tokens` e `output_tokens` — permite dashboard de custo por consumidor
 parceiro se cobrar por chamada.
 
 **"E se a Anthropic cair?"**
